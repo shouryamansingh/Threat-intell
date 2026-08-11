@@ -1,0 +1,56 @@
+{
+  "1356": {
+    "id": 1356,
+    "title": "01. Cisco Releases Security Updates for Actively Exploited SD-WAN Manager Flaw",
+    "summary": "Cisco has released security updates for a medium-severity security flaw in Catalyst SD-WAN Manager that has come under active exploitation in the wild. The vulnerability, tracked as CVE-2026-20262, carries a CVSS score of 6.",
+    "content": "Cisco has released security updates for a medium-severity security flaw in Catalyst SD-WAN Manager that has come under active exploitation in the wild. The vulnerability, tracked as CVE-2026-20262, carries a CVSS score of 6.5 out of 10.0. \"A vulnerability in the web UI of Cisco Catalyst SD-WAN Manager, formerly SD-WAN vManage, could allow an authenticated, remote attacker to create a file or overwrite any file on the filesystem of an affected system,\" Cisco said in an advisory. The issue, the networking equipment company added, stems from inadequate validation of user-supplied input during a file upload process. An attacker could exploit this behavior to create or overwrite any file on the underlying operating system by sending crafted HTTP requests to an affected API endpoint. This, in turn, could be weaponized to elevate to the root. However, successful exploitation hinges on the attacker already having valid credentials with at least write access. The vulnerability impacts the following products regardless of the deployment type - Cisco Catalyst SD-WAN Manager On-Prem Cisco SD-WAN Cloud-Pro Cisco SD-WAN Cloud (Cisco Managed) Cisco SD-WAN for Government (FedRAMP) Patches have been released to address the issue - Cisco Catalyst SD-WAN Release 20.9.9.1 and earlier - Fixed in 20.9.9.2 Cisco Catalyst SD-WAN Release 20.12.7.1 and earlier - Fixed in 20.12.7.2 Cisco Catalyst SD-WAN Release 20.15.4.4 and earlier - Fixed in 20.15.4.5 Cisco Catalyst SD-WAN Release 20.15.5.2 and earlier - Fixed in 20.15.5.3 Cisco Catalyst SD-WAN Release 20.18.3 - Fixed in 20.18.3.1 Cisco Catalyst SD-WAN Release 26.1.1.1 and earlier - Fixed in 26.1.1.2 Cisco said it \"became aware of limited exploitation of this vulnerability\" in June 2026, adding it was discovered during internal security testing. The company has also shared indicators of compromise associated with the malicious activity, urging customers to audit \"/var/log/nms/vmanage-server.log\" for suspicious WAR file uploads as below - 11",
+    "url": "https://thehackernews.com/2026/06/cisco-releases-security-updates-for.html",
+    "source": "The Hacker News",
+    "keywords": "[\"cybersecurity\", \"active exploitation\", \"AWS\", \"in the wild\", \"CVE\", \"exploit\", \"APT\", \"advanced persistent threat\", \"actively exploited\", \"infrastructure security\"]",
+    "relevance_score": 85.5
+  },
+  "1358": {
+    "id": 1358,
+    "title": "03. ⚡ Weekly Recap: Chrome 0-Day, UniFi Exploits, macOS Stealers, VPN Flaw and More",
+    "summary": "An old tool was left exposed. An abandoned package was abused. A deprecated feature was still running in prod.",
+    "content": "Stuff broke again. Not in a movie way. An old tool was left exposed. An abandoned package was abused. A deprecated feature was still running in prod. This week is the same lesson in a new form: phishing kits are easier to rent, AI names are useful bait, old login paths still fail, and forgotten software keeps becoming someone else's entry point. Scroll through the full Monday Cybersecurity Recap below for the news, tools, webinars, and fixes worth your time this week. ⚡ Threat of the Week Google Patches Actively Exploited Chrome 0-Day - Google released security updates to address 74 vulnerabilities, including one that has come under active exploitation in the wild. The high-severity vulnerability, tracked as CVE-2026-11645 (CVSS score: 8.8), has been described as an out-of-bounds memory access in V8, Chrome's JavaScript and WebAssembly engine. Google acknowledged that an \"exploit for CVE-2026-11645 exists in the wild,\" but stopped short of sharing additional specifics to ensure that a majority of the users are updated with a fix and to prevent further exploitation. Google has addressed a total of five actively exploited Chrome zero-days since the start of the year. This includes CVE-2026-2441, CVE-2026-3909, CVE-2026-3910, and CVE-2026-5281. 🔔 Top News ShinyHunters Gang Exploits Oracle PeopleSoft Zero-Day - The ShinyHunters (aka UNC6240) extortion crew exploited an unpatched flaw in Oracle PeopleSoft (CVE-2026-35273, CVSS score: 9.8) to break into enterprise networks. The vulnerability relates to a missing authentication for a critical function that could allow an unauthenticated attacker to obtain takeover of PeopleSoft Enterprise PeopleTools. According to Google Mandiant, the exploitation activity was observed between May 27 and June 9, 2026. Following a successful compromise, the attackers have been observed conducting targeted internal reconnaissance using MeshCentral, lateral movement, and data exfiltration. The U.S. Cybersecurity and Infrastructure Security Ag",
+    "url": "https://thehackernews.com/2026/06/weekly-recap-chrome-0-day-unifi.html",
+    "source": "The Hacker News",
+    "keywords": "[\"cybersecurity\", \"zero-day\", \"active exploitation\", \"in the wild\", \"CVE\", \"phishing\", \"exploit\", \"actively exploited\", \"infrastructure security\"]",
+    "relevance_score": 79.5
+  },
+  "1360": {
+    "id": 1360,
+    "title": "01. CISA Warns of Actively Exploited Joomla JCE Flaw Allowing PHP Code Execution",
+    "summary": "CISA added a maximum-severity Joomla JCE flaw (CVE-2026-48907, CVSS 10.0) to its KEV catalog amid active exploitation enabling arbitrary code execution.",
+    "content": "The U.S. Cybersecurity and Infrastructure Security Agency (CISA) on Tuesday added a maximum-severity security flaw impacting Widget Factory Joomla Content Editor (JCE) to its Known Exploited Vulnerabilities (KEV) catalog, citing evidence of active exploitation. The vulnerability, tracked as CVE-2026-48907 (CVSS score: 10.0), is a case of improper access control that could facilitate arbitrary code execution. The issue resides in the JCE editor extension for Joomla. The flaw is being weaponized to import a rogue editor profile and use it to drop a web shell, granting the attackers a persistent backdoor on the server. One important point: applying the update closes the entry point but does not clean a site that was already compromised. If you were hit before updating, the update will not remove what the attacker left behind. The content management system (CMS) provider has urged users to look for suspicious editor profiles and audit web server access logs for unauthenticated requests to the profile import task, \"index.php?option=com_jce&task=profiles.import.\" Phil E. Muncaster",
+    "url": "https://thehackernews.com/2026/06/cisa-joomla-jce.html",
+    "source": "The Hacker News",
+    "keywords": "[\"cybersecurity\", \"CVE\", \"exploit\", \"vulnerability\", \"code execution\", \"backdoor\", \"active exploitation\", \"web shell\"]",
+    "relevance_score": 88.0
+  },
+  "1556": {
+    "id": "1556",
+    "title": "01. CISA Adds 4 Actively Exploited Adobe, Joomla, and Langflow Flaws to KEV",
+    "summary": "Cybersecurity and Infrastructure Security Agency (CISA) on Tuesday added four security flaws to its Known Exploited Vulnerabilities (KEV) catalog, citing evidence of active exploitation. The vulnerabilities are listed below - CVE-2026-48282 (CVSS score: 10.",
+    "content": "The U.S. Cybersecurity and Infrastructure Security Agency (CISA) on Tuesday added four security flaws to its Known Exploited Vulnerabilities (KEV) catalog, citing evidence of active exploitation. The vulnerabilities are listed below - CVE-2026-48282 (CVSS score: 10.0) - A path traversal vulnerability in Adobe ColdFusion that could lead to arbitrary code execution in the context of the current user. (CVSS score: 10.0) - A path traversal vulnerability in Adobe ColdFusion that could lead to arbitrary code execution in the context of the current user. CVE-2026-56290 (CVSS score: 10.0) - An improper access control vulnerability in Joomlack Page Builder that could allow for remote code execution via unauthenticated arbitrary file upload. (CVSS score: 10.0) - An improper access control vulnerability in Joomlack Page Builder that could allow for remote code execution via unauthenticated arbitrary file upload. CVE-2026-55255 (CVSS score: 6.1) - An authorization bypass through a user-controlled key vulnerability in Langflow that could allow an authenticated attacker to execute any flow belonging to another user by specifying the victim's flow ID in the request. (CVSS score: 6.1) - An authorization bypass through a user-controlled key vulnerability in Langflow that could allow an authenticated attacker to execute any flow belonging to another user by specifying the victim's flow ID in the request. CVE-2026-48908 (CVSS score: 10.0) - An unrestricted upload of a file with a dangerous type vulnerability in JoomShaper SP Page Builder that allows unauthenticated users to upload arbitrary files, ultimately resulting in the upload and execution of PHP code. It's worth noting that exploitation of CVE-2026-48282 was observed within hours of public disclosure, with Ryan Dewhurst, security researcher and founder of KEVIntel, telling The Hacker News that an attempt was recorded from an IP address geolocated to India (\"103.207.14[.]220\"). CVE-2026-48908, on the other hand, is said to have ",
+    "url": "https://thehackernews.com/2026/07/cisa-adds-4-actively-exploited-adobe.html",
+    "source": "The Hacker News",
+    "keywords": [
+      "RBI",
+      "cloud security",
+      "remote code execution",
+      "zero-day",
+      "CVE",
+      "actively exploited",
+      "exploit",
+      "cybersecurity",
+      "AWS",
+      "active exploitation",
+      "ransomware",
+      "malware",
+      "infrastructure security"
+    ],
+    "relevance_score": 100.5
+  }
+}

@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SECRETS AND LIVE DATA — never commit these
+# ─────────────────────────────────────────────────────────────────────────────
+# Contains the Gmail app password and every real recipient address. The
+# committed template is admin_settings.example.json; copy it to
+# admin_settings.json locally, or supply the values via TI_* env vars.
+admin_settings.json
+
+# HMAC signing secret for email action links + Flask sessions. Leaking it lets
+# anyone mint valid approve/reject links and forge internal API calls.
+.flask_secret_key
+
+# First-run generated admin password (production bootstrap).
+.initial_admin_password
+
+# Environment files holding credentials.
+.env
+.env.*
+!.env.example
+deploy/*.env
+!deploy/*.env.example
+
+# The database holds scraped articles, user profiles, real email addresses and
+# the full delivery history. -wal / -shm are SQLite's WAL sidecar files.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Logs contain recipient addresses, SMTP conversations and stack traces.
+logs/
+*.log
+
+# Generated report attachments (Excel/CSV exports of threat data).
+*.xlsx
+*.xls
+*.csv
+exports/
+attachments/
+
+# Deployment-specific logo/wordmark. The repo ships the neutral
+# static/shield-logo.svg; a deployment drops its own company assets in under
+# these names and points TI_BRAND_LOGO / TI_BRAND_ICON at them. Committing them
+# would put the employer's identity back into a published repository.
+static/brand-*.svg
+static/brand-*.png
+
+# Scratch copies made before a de-branding / demo pass.
+.demo-backup/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editors / OS
+# ─────────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Terms check_secrets.py refuses to publish (company name, personal names,
+# internal hostnames). Committing it would leak exactly what it protects —
+# .forbidden_terms.example is the committed template.
+.forbidden_terms
+
+# Local agent/tooling state
+.claude/settings.local.json

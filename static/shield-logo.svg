@@ -1,0 +1,11 @@
+<svg width="48" height="56" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Threat Intelligence Platform">
+  <defs>
+    <linearGradient id="shieldGrad" x1="24" y1="2" x2="24" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2F6BFF"/>
+      <stop offset="1" stop-color="#13294B"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 2 L44 10 V26 C44 40 35 50 24 54 C13 50 4 40 4 26 V10 Z" fill="url(#shieldGrad)"/>
+  <path d="M24 8 L38 13.6 V26 C38 36.6 31.2 44.6 24 47.8 C16.8 44.6 10 36.6 10 26 V13.6 Z" fill="#ffffff" fill-opacity="0.10"/>
+  <path d="M16 27.5 L22 33.5 L33 20" stroke="#ffffff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

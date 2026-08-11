@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sign in · Weekly Cyber Watch</title>
+<link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root {
+    --brand-dark: #13294B;
+    --brand-blue: #2F6BFF;
+    --brand-tint: #EAF0FF;
+    --slate-50:  #f8fafc;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Geist", "Inter", -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(47,107,255,0.18), transparent 60%),
+      radial-gradient(700px 500px at 10% 110%, rgba(0,33,113,0.10), transparent 60%),
+      linear-gradient(180deg, #f8fafc 0%, #e8eef7 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    color: var(--slate-900);
+  }
+  .login-card {
+    background: #ffffff;
+    width: min(420px, 100%);
+    border: 1px solid var(--slate-200);
+    border-radius: 18px;
+    padding: 36px 32px 28px;
+    box-shadow: 0 20px 50px rgba(2,6,23,0.10), 0 2px 8px rgba(2,6,23,0.05);
+    position: relative;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 22px;
+  }
+  .brand img { height: 26px; width: auto; }
+  .brand .strap {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--slate-500); text-transform: uppercase;
+  }
+  h1 {
+    font-size: 22px; font-weight: 650; letter-spacing: -0.015em;
+    margin: 4px 0 4px;
+    color: var(--brand-dark);
+  }
+  .subtitle {
+    font-size: 13.5px; color: var(--slate-600);
+    margin: 0 0 22px;
+    line-height: 1.5;
+  }
+  .btn-google {
+    width: 100%; height: 44px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    border: 1px solid var(--slate-300); border-radius: 10px;
+    background: #ffffff; color: var(--slate-700);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background .15s, border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  .btn-google:hover { background: var(--slate-50); border-color: var(--slate-500); }
+  .btn-google:active { transform: translateY(1px); }
+  .btn-google svg { flex-shrink: 0; }
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 18px 0;
+    color: var(--slate-500); font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .divider::before, .divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--slate-200);
+  }
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--slate-600); margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--slate-200); border-radius: 9px;
+    font-size: 14px; font-family: inherit;
+    color: var(--slate-900); background: #ffffff;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--brand-blue);
+    box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+  }
+  .btn-primary-cta {
+    width: 100%; height: 44px;
+    margin-top: 6px;
+    border-radius: 10px; border: 1px solid transparent;
+    background: linear-gradient(180deg, #0033b8 0%, var(--brand-dark) 100%);
+    color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,33,113,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: background .15s, box-shadow .15s, transform .08s;
+    font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary-cta:hover {
+    background: linear-gradient(180deg, #0040d8 0%, #001a4f 100%);
+    box-shadow: 0 4px 12px rgba(0,33,113,0.30);
+  }
+  .btn-primary-cta:active { transform: translateY(1px); }
+  .btn-primary-cta:disabled { opacity: .65; cursor: not-allowed; }
+  .footer-link {
+    text-align: center; margin-top: 18px;
+    font-size: 12.5px; color: var(--slate-500);
+  }
+  .footer-link a {
+    color: var(--brand-dark); text-decoration: none; font-weight: 600;
+  }
+  .footer-link a:hover { text-decoration: underline; }
+  .footer-link .sep { margin: 0 7px; color: var(--slate-300); }
+
+  /* ─── Request-access panel (collapsed by default) ───────────── */
+  .request-box {
+    margin-top: 16px; padding: 16px;
+    border: 1px solid var(--slate-200); border-radius: 11px;
+    background: var(--slate-50);
+  }
+  .request-head {
+    font-size: 13px; font-weight: 700; color: var(--brand-dark);
+    margin-bottom: 12px;
+  }
+  .request-box .field { margin-bottom: 10px; }
+  .request-box .optional { font-weight: 500; color: var(--slate-500); }
+  .request-box textarea {
+    width: 100%; padding: 9px 12px;
+    border: 1px solid var(--slate-200); border-radius: 9px;
+    font-size: 14px; font-family: inherit; resize: vertical;
+    color: var(--slate-900); background: #ffffff;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .request-box textarea:focus {
+    outline: none; border-color: var(--brand-blue);
+    box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+  }
+  .btn-request {
+    width: 100%; height: 40px; margin-top: 4px;
+    border-radius: 9px; border: 1px solid var(--brand-blue);
+    background: #ffffff; color: var(--brand-blue);
+    font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .btn-request:hover { background: var(--brand-blue); color: #ffffff; }
+  .btn-request:disabled { opacity: .6; cursor: not-allowed; }
+  .request-note {
+    margin-top: 9px; font-size: 11.5px; color: var(--slate-500); line-height: 1.45;
+  }
+  .alert {
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 13px; line-height: 1.45;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .alert.err  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .alert.info { background: var(--brand-tint); color: var(--brand-dark); border: 1px solid rgba(47,107,255,0.4); }
+  .alert.show { display: block; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  .btn-primary-cta.loading .spinner { display: inline-block; }
+  .btn-primary-cta.loading .btn-label { opacity: .85; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .footnote {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--slate-500);
+    letter-spacing: 0.03em;
+  }
+</style>
+</head>
+<body>
+  <main class="login-card" role="main">
+    <div class="brand">
+      <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+      <span class="strap">IT Internal Audit</span>
+    </div>
+    <h1>Weekly Cyber Watch</h1>
+    <p class="subtitle">Sign in to access the threat-intelligence dashboard.</p>
+
+    <div class="alert err"  id="err"></div>
+    <div class="alert info" id="info"></div>
+
+    <button id="google-btn" class="btn-google" type="button">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    <div class="divider">or</div>
+
+    <form id="email-form" autocomplete="on" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="username" required placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••">
+      </div>
+      <button type="submit" id="email-btn" class="btn-primary-cta">
+        <span class="spinner"></span>
+        <span class="btn-label">Sign in</span>
+      </button>
+    </form>
+
+    <div class="footer-link">
+      No account? <a href="#" id="signup-link">Create one</a>
+      <span class="sep">·</span>
+      <a href="#" id="request-access-link">Request access</a>
+    </div>
+
+    <!-- Access-request form: hidden until asked for. Files a pending request
+         for an admin to approve; it grants nothing on its own. -->
+    <div class="request-box" id="request-box" style="display:none;">
+      <div class="request-head">Ask an administrator for access</div>
+      <div class="field">
+        <label for="req-name">Your name</label>
+        <input type="text" id="req-name" autocomplete="name" placeholder="Priya Sharma">
+      </div>
+      <div class="field">
+        <label for="req-email">Work email</label>
+        <input type="email" id="req-email" autocomplete="username" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label for="req-reason">Why do you need access? <span class="optional">(optional)</span></label>
+        <textarea id="req-reason" rows="2" placeholder="e.g. SOC analyst — need the weekly report"></textarea>
+      </div>
+      <button type="button" id="req-submit" class="btn-request">Send request</button>
+      <div class="request-note">An admin reviews every request. You'll be able to sign in once approved.</div>
+    </div>
+
+    <div class="footnote">Internal use only · Authenticated via Firebase</div>
+  </main>
+
+  <!-- Firebase compat SDK (no bundler required) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+    // Supplied by the server from TI_FIREBASE_* (see .env.example). Previously
+    // hardcoded here, which put the Firebase project identifiers into a
+    // committed file and duplicated them across three templates.
+    const firebaseConfig = {{ firebase_config | tojson }};
+    const firebaseConfigured = {{ 'true' if firebase_configured else 'false' }};
+
+    if (!firebaseConfigured) {
+      // Fail with an explanation rather than a bare TypeError from
+      // initializeApp({}) that leaves the page looking merely broken.
+      document.addEventListener('DOMContentLoaded', () => {
+        const el = document.getElementById('err');
+        if (el) {
+          el.textContent = 'Sign-in is not configured on this server. '
+            + 'Set TI_FIREBASE_API_KEY and TI_FIREBASE_PROJECT_ID in the .env file.';
+          el.classList.add('show');
+        }
+      });
+      throw new Error('Firebase is not configured — see .env.example');
+    }
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    auth.useDeviceLanguage();
+
+    const errEl  = document.getElementById('err');
+    const infoEl = document.getElementById('info');
+    const emailBtn = document.getElementById('email-btn');
+    const showErr  = (msg) => { errEl.textContent  = msg; errEl.classList.add('show');  infoEl.classList.remove('show'); };
+    const showInfo = (msg) => { infoEl.textContent = msg; infoEl.classList.add('show'); errEl.classList.remove('show');  };
+    const clearMsg = () => { errEl.classList.remove('show'); infoEl.classList.remove('show'); };
+
+    function nextUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next');
+      if (next && next.startsWith('/')) return next;
+      return '/';
+    }
+
+    async function exchangeForSession(user) {
+      const idToken = await user.getIdToken(/*forceRefresh*/ true);
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        // The server files an access request for a verified identity that isn't
+        // allow-listed yet, so this is a waiting room, not a failure.
+        if (j.error === 'access_request') {
+          // Drop the client-side Firebase session — they are not signed in here.
+          try { await auth.signOut(); } catch (e) {}
+          showInfo(j.message || 'Your access request has been sent to the administrators.');
+          return;
+        }
+        if (j.error === 'account_disabled') {
+          try { await auth.signOut(); } catch (e) {}
+          showErr(j.message || 'Your account is disabled.');
+          return;
+        }
+        throw new Error(j.message || j.error || `Server rejected sign-in (${resp.status})`);
+      }
+      if (j.needs_setup) {
+        window.location.href = '/setup-profile';
+        return;
+      }
+      window.location.href = nextUrl();
+    }
+
+    /** Try a local (admin-created) email+password account first.
+     *  Returns 'ok' | 'unknown' | 'handled' — 'unknown' means fall through to
+     *  Firebase, which owns the organization's SSO identities. */
+    async function tryLocalLogin(email, password) {
+      let resp, j = {};
+      try {
+        resp = await fetch('/api/auth/local-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        j = await resp.json().catch(() => ({}));
+      } catch (e) {
+        return 'unknown';           // network hiccup — let Firebase have a go
+      }
+      if (resp.ok) {
+        window.location.href = nextUrl();
+        return 'ok';
+      }
+      if (j.error === 'account_disabled') {
+        showErr(j.message || 'Your account is disabled.');
+        return 'handled';
+      }
+      // Locked out by the server-side throttle. Terminal on purpose: falling
+      // through to the Firebase attempt would overwrite this with a misleading
+      // "no such user" and hide the real reason they can't get in.
+      if (resp.status === 429 || j.error === 'too_many_attempts') {
+        showErr(j.message || 'Too many failed attempts. Try again later.');
+        return 'handled';
+      }
+      // No local account with that address at all → it may be a Firebase one.
+      if (j.unknown_account) return 'unknown';
+      // A local account exists but the password was wrong: say so rather than
+      // letting Firebase report a confusing "no such user".
+      showErr(j.message || 'Email or password is incorrect.');
+      return 'handled';
+    }
+
+    document.getElementById('google-btn').addEventListener('click', async () => {
+      clearMsg();
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      try {
+        const result = await auth.signInWithPopup(provider);
+        await exchangeForSession(result.user);
+      } catch (e) {
+        if (e.code === 'auth/popup-closed-by-user') return;
+        showErr(e.message || 'Google sign-in failed');
+      }
+    });
+
+    document.getElementById('email-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      clearMsg();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) { showErr('Email and password are required'); return; }
+      emailBtn.classList.add('loading'); emailBtn.disabled = true;
+      try {
+        // Local accounts (created by an admin in Users & Access) live in this
+        // project's database, not in Firebase — check them first, then fall back.
+        const local = await tryLocalLogin(email, password);
+        if (local !== 'unknown') return;
+
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        await exchangeForSession(result.user);
+      } catch (e) {
+        const map = {
+          'auth/invalid-email': 'That email looks invalid.',
+          'auth/user-disabled': 'This account is disabled.',
+          'auth/user-not-found': 'No account with that email. Create one, or request access below.',
+          'auth/wrong-password': 'Wrong password.',
+          'auth/invalid-credential': 'Email or password is incorrect.',
+          'auth/too-many-requests': 'Too many attempts. Try again in a few minutes.',
+        };
+        showErr(map[e.code] || e.message || 'Sign-in failed');
+      } finally {
+        emailBtn.classList.remove('loading'); emailBtn.disabled = false;
+      }
+    });
+
+    // ── Request access ──────────────────────────────────────────
+    // For someone with no account and no allow-listed domain: file a request an
+    // admin can approve on the Users & Access page. Grants nothing by itself.
+    document.getElementById('request-access-link').addEventListener('click', (ev) => {
+      ev.preventDefault();
+      clearMsg();
+      const box = document.getElementById('request-box');
+      const open = box.style.display !== 'none';
+      box.style.display = open ? 'none' : '';
+      if (!open) {
+        // Carry over whatever they already typed into the sign-in box.
+        const typed = document.getElementById('email').value.trim();
+        if (typed) document.getElementById('req-email').value = typed;
+        document.getElementById(typed ? 'req-name' : 'req-email').focus();
+      }
+    });
+
+    document.getElementById('req-submit').addEventListener('click', async () => {
+      clearMsg();
+      const btn = document.getElementById('req-submit');
+      const payload = {
+        name:   document.getElementById('req-name').value.trim(),
+        email:  document.getElementById('req-email').value.trim(),
+        reason: document.getElementById('req-reason').value.trim(),
+      };
+      if (!payload.email || !payload.email.includes('@')) {
+        showErr('Enter your work email address so an admin knows who to approve.');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const resp = await fetch('/api/auth/request-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const j = await resp.json().catch(() => ({}));
+        if (!resp.ok) { showErr(j.message || 'Could not submit your request.'); return; }
+        showInfo(j.message || 'Request sent.');
+        document.getElementById('request-box').style.display = 'none';
+        document.getElementById('req-reason').value = '';
+      } catch (e) {
+        showErr('Could not reach the server. Try again in a moment.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('signup-link').addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      clearMsg();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || password.length < 6) {
+        showErr('Enter an email and a password (at least 6 characters), then click Create one.');
+        return;
+      }
+      emailBtn.classList.add('loading'); emailBtn.disabled = true;
+      try {
+        const result = await auth.createUserWithEmailAndPassword(email, password);
+        showInfo('Account created. Signing you in…');
+        await exchangeForSession(result.user);
+      } catch (e) {
+        const map = {
+          'auth/email-already-in-use': 'That email is already registered — just sign in.',
+          'auth/invalid-email': 'That email looks invalid.',
+          'auth/weak-password': 'Password too weak. Use at least 6 characters.',
+        };
+        showErr(map[e.code] || e.message || 'Sign-up failed');
+      } finally {
+        emailBtn.classList.remove('loading'); emailBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

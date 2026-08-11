@@ -1,0 +1,1156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>My account · Weekly Cyber Watch</title>
+  <link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Design tokens, sidebar and header are the same system as the
+       Users & Access page, so the two pages read as one product. */
+    :root {
+      --accent:      #2F6BFF;
+      --accent-dk:   #1D4FD7;
+      --accent-tint: #EEF3FF;
+      --accent-line: #C9D9FE;
+
+      --ink:    #0F1729;
+      --ink-2:  #2C3648;
+      --ink-3:  #4A5568;
+      --ink-4:  #6B7590;
+      --ink-5:  #98A1B5;
+
+      --line:      #E3E7EE;
+      --line-soft: #EEF1F6;
+      --surface:   #FFFFFF;
+      --raised:    #FFFFFF;
+      --canvas:    #F4F6F9;
+      --fill:      #F7F9FC;
+
+      --ok:     #10794F;
+      --ok-dot: #15A366;
+      --ok-bg:  #E9F8F0;
+      --warn:     #9A5B0B;
+      --warn-dot: #E39A21;
+      --warn-bg:  #FDF5E7;
+      --danger:     #AF2A1E;
+      --danger-dot: #E04E3F;
+      --danger-bg:  #FDEEEC;
+
+      --shadow-sm: 0 1px 2px rgba(15,23,41,.04), 0 1px 3px rgba(15,23,41,.05);
+      --shadow-md: 0 4px 14px rgba(15,23,41,.07), 0 1px 3px rgba(15,23,41,.04);
+
+      --r-card: 11px;
+      --r-ctl: 7px;
+
+      --sidebar-w-collapsed: 60px;
+      --sidebar-w-expanded: 220px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0; background: var(--canvas); color: var(--ink);
+      min-height: 100vh; -webkit-font-smoothing: antialiased;
+      padding-left: var(--sidebar-w-collapsed);
+      font-size: 13.5px; line-height: 1.5;
+    }
+    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* ─── Sidebar ──────────────────────────────────────────────── */
+    .app-sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w-collapsed); background: var(--surface);
+      border-right: 1px solid var(--line); z-index: 1050;
+      display: flex; flex-direction: column; padding: 12px 8px; overflow: hidden;
+      transition: width .26s cubic-bezier(.25,.1,.25,1), box-shadow .26s;
+    }
+    .app-sidebar:hover { width: var(--sidebar-w-expanded); box-shadow: 6px 0 28px rgba(15,23,41,.09); }
+    .app-sidebar .sb-logo {
+      display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px;
+      border-bottom: 1px solid var(--line-soft); margin-bottom: 10px; text-decoration: none;
+    }
+    .app-sidebar .sb-logo img { height: 26px; width: 26px; min-width: 26px; }
+    .app-sidebar .sb-logo .sb-logo-text {
+      font-size: 11.5px; font-weight: 650; letter-spacing: .08em; color: var(--ink);
+      text-transform: uppercase; white-space: nowrap;
+      opacity: 0; transform: translateX(-6px); transition: opacity .22s, transform .22s;
+    }
+    .app-sidebar:hover .sb-logo .sb-logo-text { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-links { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; overflow-y: auto; }
+    .app-sidebar .sb-link {
+      display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+      border: none; background: transparent; color: var(--ink-3); border-radius: var(--r-ctl);
+      font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer;
+      font-family: inherit; text-align: left; white-space: nowrap; position: relative;
+      transition: background .15s, color .15s;
+    }
+    .app-sidebar .sb-link:hover { background: var(--fill); color: var(--ink); }
+    .app-sidebar .sb-link.active {
+      background: var(--accent-tint); color: var(--accent-dk); font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .app-sidebar .sb-link .sb-ico {
+      width: 28px; min-width: 28px; height: 26px;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .app-sidebar .sb-link .sb-label {
+      opacity: 0; transform: translateX(-6px); transition: opacity .25s, transform .25s;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .app-sidebar:hover .sb-link .sb-label { opacity: 1; transform: translateX(0); }
+    .sb-badge {
+      position: absolute; top: 6px; left: 30px; min-width: 7px; height: 7px;
+      border-radius: 999px; background: var(--danger-dot); display: none;
+    }
+    .sb-badge.show { display: block; }
+    .app-sidebar:hover .sb-badge {
+      position: static; margin-left: auto; height: 17px; min-width: 17px; padding: 0 5px;
+      color: #fff; font-size: 10.5px; font-weight: 650; border-radius: 5px;
+      display: none; align-items: center; justify-content: center;
+    }
+    .app-sidebar:hover .sb-badge.show { display: inline-flex; }
+    .app-sidebar .sb-foot {
+      flex-shrink: 0; border-top: 1px solid var(--line-soft);
+      padding-top: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .app-sidebar .sb-user {
+      display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+      border-radius: var(--r-ctl); text-decoration: none; transition: background .15s;
+    }
+    .app-sidebar a.sb-user:hover { background: var(--fill); }
+    .app-sidebar a.sb-user.active { background: var(--accent-tint); }
+    .app-sidebar .sb-avatar, .app-sidebar .sb-avatar-initial {
+      width: 26px; min-width: 26px; height: 26px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 650; background: var(--accent-tint); color: var(--accent-dk);
+      border: 1px solid var(--accent-line); object-fit: cover; flex-shrink: 0;
+    }
+    .app-sidebar .sb-user-meta {
+      min-width: 0; flex: 1; opacity: 0; transform: translateX(-6px);
+      transition: opacity .25s, transform .25s;
+    }
+    .app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-user-meta .name {
+      font-size: 12px; font-weight: 600; color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-user-meta .email {
+      font-size: 11px; color: var(--ink-4);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-logout { color: var(--danger); }
+    .app-sidebar .sb-logout:hover { background: var(--danger-bg); }
+    @media (max-width: 768px) { .app-sidebar { display: none; } body { padding-left: 0; } }
+
+    /* ─── Top bar ──────────────────────────────────────────────── */
+    header.app {
+      background: var(--surface); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 40;
+    }
+    header.app .inner {
+      max-width: 64rem; margin: 0 auto; padding: 0 30px;
+      display: flex; align-items: center; height: 58px; gap: 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .brand img { height: 24px; width: auto; display: block; }
+    .brand .divider { width: 1px; height: 26px; background: var(--line); }
+    .brand .title { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.2; letter-spacing: -.005em; }
+    .brand .subtitle { font-size: 11.5px; color: var(--ink-4); line-height: 1.3; }
+
+    .theme-toggle {
+      width: 54px; height: 28px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--fill); cursor: pointer; padding: 2px; display: inline-flex; align-items: center;
+    }
+    .theme-toggle .tt-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .theme-toggle .tt-slot {
+      width: 22px; height: 22px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: transform .25s, background .25s, color .25s;
+    }
+    .theme-toggle .tt-active { background: var(--surface); color: var(--ink-2); transform: translateX(24px); box-shadow: var(--shadow-sm); }
+    .theme-toggle .tt-muted { background: transparent; color: var(--ink-5); transform: translateX(-24px); }
+    .theme-toggle i { font-size: 12px; }
+    .theme-toggle .tt-active .sun { display: inline-block; }
+    .theme-toggle .tt-active .moon { display: none; }
+    .theme-toggle .tt-muted .moon { display: inline-block; }
+    .theme-toggle .tt-muted .sun { display: none; }
+    html.dark .theme-toggle .tt-active { transform: translateX(0); }
+    html.dark .theme-toggle .tt-muted { transform: translateX(0); }
+    html.dark .theme-toggle .tt-active .sun { display: none; }
+    html.dark .theme-toggle .tt-active .moon { display: inline-block; }
+    html.dark .theme-toggle .tt-muted .moon { display: none; }
+    html.dark .theme-toggle .tt-muted .sun { display: inline-block; }
+
+    /* ─── Page ─────────────────────────────────────────────────── */
+    main { max-width: 64rem; margin: 0 auto; padding: 30px 30px 90px; }
+    .page-head { margin-bottom: 18px; }
+    .eyebrow {
+      font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--accent-dk); margin-bottom: 7px;
+    }
+    .page-head h1 {
+      margin: 0 0 6px; font-size: 24px; font-weight: 650;
+      letter-spacing: -0.026em; color: var(--ink);
+    }
+    .page-head p { margin: 0; color: var(--ink-4); font-size: 13.5px; max-width: 82ch; }
+
+    /* Identity header: who you are, and what that entitles you to. */
+    .identity {
+      background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-card);
+      box-shadow: var(--shadow-sm); margin-bottom: 22px; padding: 20px;
+      display: flex; align-items: center; gap: 17px; flex-wrap: wrap;
+    }
+    .identity .big-avatar {
+      width: 58px; height: 58px; min-width: 58px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 19px; font-weight: 650; letter-spacing: .02em; border: 1px solid;
+      object-fit: cover;
+    }
+    .identity .who { min-width: 0; flex: 1 1 220px; }
+    .identity .who .nm {
+      font-size: 19px; font-weight: 650; letter-spacing: -.02em; color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+    .identity .who .ml { font-size: 13px; color: var(--ink-4); margin-top: 2px; overflow-wrap: anywhere; }
+    .identity .tags { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    .rchip {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12.5px; font-weight: 600; border-radius: 6px;
+      padding: 5px 11px; border: 1px solid; white-space: nowrap;
+    }
+    .rchip.t1 { background: #F2F4F8; color: var(--ink-3); border-color: var(--line); }
+    .rchip.t2 { background: var(--accent-tint); color: var(--accent-dk); border-color: var(--accent-line); }
+    .rchip.t3 { background: #1B2E5C; color: #F2F5FC; border-color: #1B2E5C; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11.5px; font-weight: 600; border-radius: 5px; padding: 4px 9px;
+      border: 1px solid var(--line); background: var(--fill); color: var(--ink-3); white-space: nowrap;
+    }
+    .tag.ok { background: var(--ok-bg); color: var(--ok); border-color: rgba(21,163,102,.3); }
+    .tag.warn { background: var(--warn-bg); color: var(--warn); border-color: rgba(227,154,33,.35); }
+    .tag.bad { background: var(--danger-bg); color: var(--danger); border-color: rgba(224,78,63,.32); }
+
+    /* ─── Panels ───────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--r-card); margin-bottom: 22px; overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .panel-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 15px 20px; border-bottom: 1px solid var(--line); background: var(--fill);
+    }
+    .panel-head .titles { min-width: 0; }
+    .panel-head h2 {
+      margin: 0; font-size: 14.5px; font-weight: 650; color: var(--ink);
+      letter-spacing: -.01em; display: flex; align-items: center; gap: 9px;
+    }
+    .panel-head h2 i { color: var(--ink-4); font-size: 13px; }
+    .panel-sub { font-size: 12.5px; color: var(--ink-4); margin-top: 4px; }
+    .panel-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .panel-body { padding: 20px; }
+    .panel-foot {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 14px 20px; background: var(--fill); border-top: 1px solid var(--line);
+    }
+    .panel-foot .spacer { margin-left: auto; }
+
+    /* Read-only facts */
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+    .fact { padding: 14px 20px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+    .fact-k {
+      display: block; font-size: 11px; font-weight: 650; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px;
+    }
+    .fact-v { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+    .fact-v .sub { display: block; font-size: 11.5px; color: var(--ink-5); margin-top: 3px; }
+    .method { display: inline-flex; align-items: center; gap: 7px; }
+    .method i { color: var(--ink-4); width: 13px; text-align: center; }
+
+    /* Capability list under the role */
+    .caps { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 7px; }
+    .caps li { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-3); }
+    .caps li i { width: 13px; text-align: center; font-size: 11px; }
+    .caps li.yes i { color: var(--ok-dot); }
+    .caps li.no { color: var(--ink-5); }
+    .caps li.no i { color: var(--ink-5); opacity: .5; }
+
+    /* ─── Form controls ────────────────────────────────────────── */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label, .field .lbl {
+      display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px;
+    }
+    /* Flex + a floor on the height stop a label's pill from making that label
+       taller than its neighbour, which would drop one column's input by a pixel or two. */
+    .field label { display: flex; align-items: center; min-height: 19px; }
+    .field label .req { color: var(--danger); margin-left: 2px; }
+    input.inp {
+      font-family: inherit; font-size: 13px; padding: 8px 11px; height: 38px;
+      border-radius: var(--r-ctl); border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink); width: 100%;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input.inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,107,255,.15); }
+    input.inp:disabled { background: var(--fill); color: var(--ink-4); cursor: not-allowed; }
+    .hint { font-size: 11.5px; color: var(--ink-5); margin-top: 6px; line-height: 1.45; }
+    .hint code {
+      font-family: "Geist Mono", ui-monospace, monospace; font-size: 10.5px;
+      background: var(--fill); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px;
+    }
+
+    /* A quiet subhead + rule, so a wall of inputs reads as two ideas. */
+    .fgroup + .fgroup { margin-top: 24px; }
+    .fgroup-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .fgroup-head .fg-t {
+      font-size: 10.5px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--ink-4); white-space: nowrap;
+    }
+    .fgroup-head .fg-rule { flex: 1 1 auto; height: 1px; background: var(--line-soft); }
+
+    /* Inputs carry a leading glyph that picks up the accent on focus. */
+    .ctl { position: relative; }
+    .ctl .ctl-ico {
+      position: absolute; top: 50%; left: 12px; transform: translateY(-50%);
+      font-size: 12px; color: var(--ink-5); pointer-events: none; transition: color .15s;
+    }
+    .ctl:focus-within .ctl-ico { color: var(--accent); }
+    input.inp.has-ico { padding-left: 34px; }
+    input.inp:hover:not(:disabled):not(:focus) { border-color: #D2D8E3; }
+
+    /* Label-line qualifiers — they replace a paragraph of hint text each. */
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;
+      margin-left: 7px; padding: 2px 6px; border-radius: 4px;
+      font-size: 9.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase;
+      line-height: 1; border: 1px solid var(--line); background: var(--fill); color: var(--ink-5);
+    }
+    .pill i { font-size: 8px; }
+    .pill.lock { background: var(--accent-tint); color: var(--accent-dk); border-color: var(--accent-line); }
+
+    /* Live answer to "so where does my mail actually go?" */
+    .deliver {
+      margin-top: 8px; font-size: 11.5px; color: var(--ink-4);
+      display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+    }
+    .deliver i { color: var(--ink-5); font-size: 10.5px; }
+    .deliver b { color: var(--ink-2); font-weight: 600; overflow-wrap: anywhere; }
+    .deliver .fb { color: var(--ink-5); }
+
+    .dirty-chip {
+      display: none; align-items: center; gap: 7px;
+      font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 5px;
+      background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(227,154,33,.35);
+    }
+    .dirty-chip.show { display: inline-flex; }
+    .dirty-chip .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--warn-dot); }
+
+    .pwd-wrap { position: relative; }
+    .pwd-wrap input { padding-right: 38px; }
+    .pwd-wrap .eye {
+      position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: none; cursor: pointer; color: var(--ink-4);
+      font-size: 12px; border-radius: 6px;
+    }
+    .pwd-wrap .eye:hover { color: var(--ink); background: var(--fill); }
+    .pwd-meter { display: flex; gap: 4px; margin-top: 7px; height: 4px; }
+    .pwd-meter span { flex: 1; background: var(--line); border-radius: 999px; transition: background .2s; }
+    .pwd-meter[data-strength="1"] span:nth-child(-n+1) { background: var(--danger-dot); }
+    .pwd-meter[data-strength="2"] span:nth-child(-n+2) { background: var(--warn-dot); }
+    .pwd-meter[data-strength="3"] span:nth-child(-n+3) { background: var(--ok-dot); }
+    .pwd-meter[data-strength="4"] span { background: var(--ok); }
+    .match { margin-top: 6px; font-size: 11.5px; color: var(--ink-5); min-height: 16px; }
+    .match.ok { color: var(--ok); }
+    .match.bad { color: var(--danger); }
+
+    .btn {
+      font-family: inherit; font-size: 12.5px; font-weight: 600;
+      padding: 8px 14px; border-radius: var(--r-ctl); cursor: pointer;
+      border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+      display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+      box-shadow: var(--shadow-sm);
+      transition: background .14s, color .14s, border-color .14s, box-shadow .14s;
+    }
+    .btn:hover { background: var(--fill); color: var(--ink); border-color: #D2D8E3; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-dk); border-color: var(--accent-dk); color: #fff; }
+    .btn.danger { color: var(--danger); border-color: rgba(175,42,30,.28); }
+    .btn.danger:hover { background: var(--danger-bg); border-color: rgba(175,42,30,.5); color: var(--danger); }
+    .btn .spin {
+      width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin .7s linear infinite; display: none;
+    }
+    .btn.loading .spin { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Explanatory state for identities whose password we don't hold */
+    .callout { display: flex; gap: 14px; align-items: flex-start; }
+    .callout .ico {
+      width: 34px; height: 34px; min-width: 34px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+      background: var(--accent-tint); color: var(--accent-dk); border: 1px solid var(--accent-line);
+    }
+    .callout.warn .ico { background: var(--warn-bg); color: var(--warn); border-color: rgba(227,154,33,.3); }
+    .callout .t { font-size: 13.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+    .callout .d { font-size: 12.5px; color: var(--ink-4); line-height: 1.6; max-width: 74ch; }
+
+    /* ─── Notice ───────────────────────────────────────────────── */
+    #noticeWrap { position: sticky; top: 58px; z-index: 35; }
+    .notice {
+      display: none; align-items: center; gap: 11px;
+      padding: 11px 15px; border-radius: var(--r-ctl); margin-bottom: 18px;
+      font-size: 13px; border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink-2); box-shadow: var(--shadow-md);
+    }
+    .notice.show { display: flex; }
+    .notice .bar { width: 3px; align-self: stretch; border-radius: 2px; background: var(--ink-5); }
+    .notice.success { background: var(--ok-bg); border-color: rgba(21,163,102,.3); color: var(--ok); }
+    .notice.success .bar { background: var(--ok-dot); }
+    .notice.error { background: var(--danger-bg); border-color: rgba(224,78,63,.32); color: var(--danger); }
+    .notice.error .bar { background: var(--danger-dot); }
+    .notice.info { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-dk); }
+    .notice.info .bar { background: var(--accent); }
+    .notice .x { margin-left: auto; background: none; border: none; cursor: pointer; color: inherit; opacity: .6; font-size: 12px; }
+    .notice .x:hover { opacity: 1; }
+
+    .skeleton { color: var(--ink-5); font-size: 13px; }
+
+    @media (max-width: 620px) {
+      .grid2 { grid-template-columns: 1fr; }
+      main, header.app .inner { padding-left: 18px; padding-right: 18px; }
+    }
+
+    /* ─── Dark ─────────────────────────────────────────────────── */
+    html.dark {
+      color-scheme: dark;
+      --accent:      #5C8BFF;
+      --accent-dk:   #86A9FF;
+      --accent-tint: #17233C;
+      --accent-line: #2C4272;
+      --ink:    #E9EDF5;
+      --ink-2:  #C9D1E0;
+      --ink-3:  #A6B0C4;
+      --ink-4:  #8892A8;
+      --ink-5:  #69738A;
+      --line:      #242D3F;
+      --line-soft: #1C2433;
+      --surface:   #111825;
+      --raised:    #131B2A;
+      --canvas:    #0A0E17;
+      --fill:      #161E2D;
+      --ok: #43D699; --ok-dot: #2BB877; --ok-bg: #10231C;
+      --warn: #F3B95F; --warn-dot: #D99A2B; --warn-bg: #241C0F;
+      --danger: #FF8A80; --danger-dot: #E2544A; --danger-bg: #261414;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+      --shadow-md: 0 4px 14px rgba(0,0,0,.35);
+    }
+    /* Wordmark only — flattening it to white gives the reverse-logo variant.
+       The sidebar badge may be a coloured gradient tile; filtering that would
+       erase the glyph inside it, so it is deliberately excluded. */
+    html.dark .brand img { filter: brightness(0) invert(.92); }
+    html.dark .theme-toggle .tt-active { background: #242D3F; color: var(--ink); }
+    html.dark .rchip.t1 { background: #1B2433; color: var(--ink-3); }
+    html.dark .rchip.t3 { background: #2C4272; color: #E9EDF5; border-color: #38508A; }
+    html.dark .btn.primary, html.dark .btn.primary:hover { color: #0A0E17; }
+    html.dark .btn:hover, html.dark input.inp:hover:not(:disabled):not(:focus) { border-color: #33405A; }
+    /* --fill sits too close to --surface in the dark palette for a locked field to read as locked. */
+    html.dark input.inp:disabled { background: #0D131E; }
+  </style>
+</head>
+<body>
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+    <a class="sb-logo" href="/" title="Weekly Cyber Watch">
+      <img src="{{ brand.icon }}" alt="">
+      <span class="sb-logo-text">Cyber Watch</span>
+    </a>
+    <nav class="sb-links">
+      <a class="sb-link" href="/" title="Dashboard">
+        <span class="sb-ico"><i class="fas fa-house"></i></span>
+        <span class="sb-label">Dashboard</span>
+      </a>
+      <a class="sb-link" href="/admin" title="Admin Settings">
+        <span class="sb-ico"><i class="fas fa-sliders"></i></span>
+        <span class="sb-label">Admin</span>
+      </a>
+      <!-- Admin-only; revealed once /api/auth/me confirms the role -->
+      <a class="sb-link" href="/admin/users" id="sb-users-link" title="Users &amp; Access" style="display:none;">
+        <span class="sb-ico"><i class="fas fa-users"></i></span>
+        <span class="sb-label">Users &amp; Access</span>
+        <span class="sb-badge" id="sb-pending-badge"></span>
+      </a>
+      <a class="sb-link active" href="/settings" title="My account &amp; password">
+        <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
+        <span class="sb-label">My Account</span>
+      </a>
+    </nav>
+    <div class="sb-foot">
+      <a class="sb-user active" id="sb-user" href="/settings" title="My account" style="display:none;">
+        <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
+        <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
+        <div class="sb-user-meta">
+          <div class="name" id="sb-user-name">Signed in</div>
+          <div class="email" id="sb-user-email">—</div>
+        </div>
+      </a>
+      <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
+        <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
+        <span class="sb-label">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <header class="app">
+    <div class="inner">
+      <a class="brand" href="/">
+        <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+        <div class="divider" aria-hidden="true"></div>
+        <div>
+          <div class="title">Weekly Cyber Watch</div>
+          <div class="subtitle">IT Internal Audit</div>
+        </div>
+      </a>
+      <button type="button" id="theme-toggle" class="theme-toggle" style="margin-left:auto;"
+              role="switch" aria-label="Toggle light / dark theme" title="Toggle theme">
+        <span class="tt-row">
+          <span class="tt-active tt-slot" aria-hidden="true">
+            <i class="fas fa-moon moon"></i><i class="fas fa-sun sun"></i>
+          </span>
+          <span class="tt-muted tt-slot" aria-hidden="true">
+            <i class="fas fa-sun sun"></i><i class="fas fa-moon moon"></i>
+          </span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-head">
+      <div class="eyebrow">Your account</div>
+      <h1>My account</h1>
+      <p>Your details as this platform holds them, the role that decides what you can do,
+         and where to change your password. Only an administrator can change your role.</p>
+    </div>
+
+    <div id="noticeWrap"><div id="notice" class="notice"></div></div>
+
+    <div class="identity" id="identity">
+      <span id="avatarSlot">
+        <span class="big-avatar" style="background:var(--accent-tint);color:var(--accent-dk);border-color:var(--accent-line);">?</span>
+      </span>
+      <div class="who">
+        <div class="nm" id="idName">Loading…</div>
+        <div class="ml" id="idEmail">—</div>
+      </div>
+      <div class="tags" id="idTags"></div>
+    </div>
+
+    <!-- ─── Details you own ─────────────────────────────────────── -->
+    <section class="panel">
+      <div class="panel-head">
+        <div class="titles">
+          <h2><i class="fas fa-id-card"></i> Your details</h2>
+          <div class="panel-sub">How you appear across the dashboard, reports and notifications.</div>
+        </div>
+        <div class="panel-tools">
+          <span class="dirty-chip" id="dirtyChip"><span class="dot"></span>Unsaved changes</span>
+        </div>
+      </div>
+      <form id="profileForm">
+        <div class="panel-body">
+          <div class="fgroup">
+            <div class="fgroup-head"><span class="fg-t">Identity</span><span class="fg-rule"></span></div>
+            <div class="grid2">
+              <div class="field">
+                <label for="display_name">Display name<span class="req">*</span></label>
+                <div class="ctl">
+                  <i class="fas fa-user ctl-ico" aria-hidden="true"></i>
+                  <input class="inp has-ico" type="text" id="display_name" maxlength="200" required
+                         placeholder="e.g. Alex Morgan">
+                </div>
+                <div class="hint">Shown in the sidebar, the audit trail and report footers.</div>
+              </div>
+              <div class="field">
+                <label for="email_ro">Sign-in email<span class="pill lock"
+                       title="Fixed to the identity you signed in with. An admin can create a new account if this must change."><i class="fas fa-lock"></i>Locked</span></label>
+                <div class="ctl">
+                  <i class="fas fa-envelope ctl-ico" aria-hidden="true"></i>
+                  <input class="inp has-ico" type="text" id="email_ro" disabled>
+                </div>
+                <div class="hint">Set by the identity you signed in with.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fgroup">
+            <div class="fgroup-head"><span class="fg-t">Contact &amp; notifications</span><span class="fg-rule"></span></div>
+            <div class="grid2">
+              <div class="field">
+                <label for="department">Department<span class="pill">Optional</span></label>
+                <div class="ctl">
+                  <i class="fas fa-sitemap ctl-ico" aria-hidden="true"></i>
+                  <input class="inp has-ico" type="text" id="department" maxlength="120"
+                         placeholder="e.g. IT Internal Audit">
+                </div>
+              </div>
+              <div class="field">
+                <label for="phone">Phone<span class="pill">Optional</span></label>
+                <div class="ctl">
+                  <i class="fas fa-phone ctl-ico" aria-hidden="true"></i>
+                  <input class="inp has-ico" type="text" id="phone" maxlength="40"
+                         placeholder="e.g. +91 98765 43210">
+                </div>
+              </div>
+              <div class="field full">
+                <label for="notification_email">Notification email<span class="pill">Optional</span></label>
+                <div class="ctl">
+                  <i class="fas fa-bell ctl-ico" aria-hidden="true"></i>
+                  <input class="inp has-ico" type="email" id="notification_email" maxlength="200"
+                         placeholder="Leave blank to use your sign-in email">
+                </div>
+                <div class="deliver" id="deliverTo"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-foot">
+          <span class="hint" style="margin:0;" id="saveHint">Role and account status are managed by an administrator.</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="revertBtn">Discard changes</button>
+          <button type="submit" class="btn primary" id="saveBtn">
+            <span class="spin"></span><i class="fas fa-check"></i> Save details
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ─── Role & access ───────────────────────────────────────── -->
+    <section class="panel">
+      <div class="panel-head">
+        <div class="titles">
+          <h2><i class="fas fa-shield-halved"></i> Role &amp; access</h2>
+          <div class="panel-sub">What this account is permitted to do. Read-only — ask an admin to change it.</div>
+        </div>
+        <div class="panel-tools" id="roleChipSlot"></div>
+      </div>
+      <div class="panel-body">
+        <div id="roleDesc" class="fact-v" style="color:var(--ink-3);">—</div>
+        <ul class="caps" id="caps"></ul>
+      </div>
+      <div class="facts" id="facts"></div>
+    </section>
+
+    <!-- ─── Password ────────────────────────────────────────────── -->
+    <section class="panel" id="pwPanel">
+      <div class="panel-head">
+        <div class="titles">
+          <h2><i class="fas fa-key"></i> Password</h2>
+          <div class="panel-sub" id="pwSub">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Local account: we hold the hash, so change it right here. -->
+      <form id="pwLocalForm" style="display:none;">
+        <div class="panel-body">
+          <div class="grid2">
+            <div class="field full">
+              <label for="pwCurrent">Current password<span class="req">*</span></label>
+              <div class="pwd-wrap">
+                <input class="inp" type="password" id="pwCurrent" autocomplete="current-password" maxlength="128">
+                <button type="button" class="eye" data-target="pwCurrent" aria-label="Show password"><i class="fas fa-eye"></i></button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="pwNew">New password<span class="req">*</span></label>
+              <div class="pwd-wrap">
+                <input class="inp" type="password" id="pwNew" autocomplete="new-password" maxlength="128"
+                       placeholder="At least 8 characters">
+                <button type="button" class="eye" data-target="pwNew" aria-label="Show password"><i class="fas fa-eye"></i></button>
+              </div>
+              <div class="pwd-meter" id="pwMeter" data-strength="0"><span></span><span></span><span></span><span></span></div>
+            </div>
+            <div class="field">
+              <label for="pwConfirm">Confirm new password<span class="req">*</span></label>
+              <div class="pwd-wrap">
+                <input class="inp" type="password" id="pwConfirm" autocomplete="new-password" maxlength="128"
+                       placeholder="Re-type the new password">
+                <button type="button" class="eye" data-target="pwConfirm" aria-label="Show password"><i class="fas fa-eye"></i></button>
+              </div>
+              <div class="match" id="pwMatch">&nbsp;</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-foot">
+          <span class="hint" style="margin:0;">Changing your password is recorded in the access audit trail.</span>
+          <span class="spacer"></span>
+          <button type="submit" class="btn primary" id="pwSaveBtn">
+            <span class="spin"></span><i class="fas fa-key"></i> Change password
+          </button>
+        </div>
+      </form>
+
+      <!-- Firebase identity: the credential lives with Firebase, so email a link. -->
+      <div id="pwFirebase" style="display:none;">
+        <div class="panel-body">
+          <div class="callout">
+            <div class="ico"><i class="fas fa-envelope"></i></div>
+            <div>
+              <div class="t">Your password is managed by Firebase</div>
+              <div class="d" id="pwFirebaseDesc">
+                We never see it, so it can only be changed through a reset link sent to your
+                sign-in address. The link is valid for one hour.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-foot">
+          <span class="hint" style="margin:0;" id="pwFirebaseHint">&nbsp;</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn primary" id="pwResetBtn">
+            <span class="spin"></span><i class="fas fa-paper-plane"></i> Send reset link
+          </button>
+        </div>
+      </div>
+
+      <!-- Nothing to change (demo identity). -->
+      <div id="pwNone" style="display:none;">
+        <div class="panel-body">
+          <div class="callout warn">
+            <div class="ico"><i class="fas fa-circle-info"></i></div>
+            <div>
+              <div class="t">No password on this identity</div>
+              <div class="d">This session is running in demo mode, which has no credential to change.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Session ─────────────────────────────────────────────── -->
+    <section class="panel">
+      <div class="panel-head">
+        <div class="titles">
+          <h2><i class="fas fa-right-from-bracket"></i> Session</h2>
+          <div class="panel-sub">Sign out of this browser. Sessions expire on their own after seven days.</div>
+        </div>
+        <div class="panel-tools">
+          <button type="button" class="btn danger" id="signOutBtn">
+            <i class="fas fa-right-from-bracket"></i> Sign out
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    let ME = null;            // last-loaded account payload
+    let noticeTimer = null;
+
+    const tier = (role) => role === 'admin' ? 3 : role === 'analyst_admin' ? 2 : 1;
+
+    function notice(kind, message) {
+      const el = $('notice');
+      el.className = 'notice show ' + kind;
+      el.innerHTML = `<span class="bar"></span><span>${esc(message)}</span>` +
+                     `<button class="x" aria-label="Dismiss">✕</button>`;
+      el.querySelector('.x').addEventListener('click', () => el.classList.remove('show'));
+      clearTimeout(noticeTimer);
+      if (kind !== 'error') noticeTimer = setTimeout(() => el.classList.remove('show'), 6000);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function api(url, options) {
+      const res = await fetch(url, Object.assign({
+        headers: { 'Content-Type': 'application/json' },
+      }, options || {}));
+      let body = {};
+      try { body = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        const err = new Error(body.message || body.error || `Request failed (${res.status})`);
+        err.status = res.status; err.code = body.error;
+        throw err;
+      }
+      return body;
+    }
+
+    function busy(btn, on) {
+      btn.classList.toggle('loading', on);
+      btn.disabled = on;
+    }
+
+    /** Server timestamps are naive UTC ("2026-08-03 06:17:24"). */
+    function toDate(ts) {
+      if (!ts) return null;
+      const d = new Date(String(ts).replace(' ', 'T') + 'Z');
+      return isNaN(d) ? null : d;
+    }
+    function absolute(ts) {
+      const d = toDate(ts);
+      return d ? d.toLocaleString(undefined, {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      }) : '—';
+    }
+    function relative(ts) {
+      const d = toDate(ts);
+      if (!d) return null;
+      const mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 1) return 'moments ago';
+      if (mins < 60) return `${mins} min ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `${hrs} hr ago`;
+      const days = Math.round(hrs / 24);
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    }
+
+    function initials(name, email) {
+      const src = (name || email || '?').trim();
+      const parts = src.split(/[\s._-]+/).filter(Boolean);
+      return (parts.length > 1 ? parts[0][0] + parts[1][0] : src.slice(0, 2)).toUpperCase();
+    }
+    // Same deterministic tones as the roster, so you recognise yourself there.
+    const TONES = [
+      ['#EEF2FF', '#3A44A8', '#D3DAFB'], ['#E9F7F0', '#0E7350', '#C8E9D9'],
+      ['#FDF3E7', '#8A5310', '#F2DCBE'], ['#FBEFF4', '#94305C', '#F0D2DF'],
+      ['#EAF2FD', '#1F4C9B', '#CBDEF7'], ['#F3EEFB', '#5B3695', '#DDD1F2'],
+      ['#E8F5F6', '#12656E', '#C6E5E8'],
+    ];
+    function toneFor(key) {
+      let h = 0;
+      for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      return TONES[Math.abs(h) % TONES.length];
+    }
+
+    const METHOD_ICONS = {
+      'google.com': 'fab fa-google',
+      'password': 'fas fa-key',
+      'local': 'fas fa-key',
+      'demo': 'fas fa-flask',
+    };
+
+    // ─── "Your details": dirty state + live delivery target ─────
+    const PROFILE_FIELDS = ['display_name', 'department', 'phone', 'notification_email'];
+    let EDITABLE = true;
+    let CLEAN = '';
+
+    // Single-line inputs cannot hold a newline, so it is a safe separator.
+    const snapshot = () => PROFILE_FIELDS.map((f) => $(f).value).join('\n');
+
+    /** Spells out the address mail will really go to, so the blank case is never a guess. */
+    function updateDeliver() {
+      const typed = $('notification_email').value.trim();
+      const signin = (ME && ME.email) || '';
+      const target = typed || signin;
+      $('deliverTo').innerHTML = target
+        ? `<i class="fas fa-paper-plane"></i><span>Alerts and approval requests go to <b>${esc(target)}</b>` +
+          (typed ? '' : '<span class="fb"> — your sign-in address</span>') + '</span>'
+        : '';
+    }
+
+    function syncDirty() {
+      const dirty = EDITABLE && snapshot() !== CLEAN;
+      $('dirtyChip').classList.toggle('show', dirty);
+      $('saveBtn').disabled = !dirty;
+      $('revertBtn').disabled = !dirty;
+      updateDeliver();
+    }
+    function markClean() { CLEAN = snapshot(); syncDirty(); }
+
+    PROFILE_FIELDS.forEach((f) => $(f).addEventListener('input', syncDirty));
+    markClean();   // Baseline the empty form; load() re-baselines it against the server.
+
+    // ─── Render ─────────────────────────────────────────────────
+    function render(a) {
+      const name = a.name || (a.email ? a.email.split('@')[0] : 'Signed in');
+
+      // Identity header
+      if (a.picture) {
+        $('avatarSlot').innerHTML =
+          `<img class="big-avatar" src="${esc(a.picture)}" alt="" referrerpolicy="no-referrer"
+                style="border-color:var(--accent-line);">`;
+      } else {
+        const [bg, fg, bd] = toneFor((a.email || name).toLowerCase());
+        $('avatarSlot').innerHTML =
+          `<span class="big-avatar" style="background:${bg};color:${fg};border-color:${bd};">${
+            esc(initials(a.name, a.email))}</span>`;
+      }
+      $('idName').textContent = name;
+      $('idEmail').textContent = a.email || '—';
+
+      const tags = [];
+      tags.push(`<span class="rchip t${tier(a.role)}">${esc(a.role_label)}</span>`);
+      tags.push(`<span class="tag"><i class="${METHOD_ICONS[a.provider] || 'fas fa-key'}"></i>${esc(a.provider_label)}</span>`);
+      tags.push(a.active
+        ? `<span class="tag ok"><i class="fas fa-circle-check"></i>Enabled</span>`
+        : `<span class="tag bad"><i class="fas fa-circle-xmark"></i>Disabled</span>`);
+      if (a.identity_verified) {
+        tags.push(`<span class="tag ok"><i class="fas fa-user-check"></i>Verified identity</span>`);
+      } else {
+        tags.push(`<span class="tag warn" title="Some restricted views, such as the access audit log, require a provider-verified identity."><i class="fas fa-user-clock"></i>Unverified identity</span>`);
+      }
+      $('idTags').innerHTML = tags.join('');
+
+      // Editable fields
+      $('display_name').value = a.name || '';
+      $('email_ro').value = a.email || '';
+      $('department').value = a.department || '';
+      $('phone').value = a.phone || '';
+      $('notification_email').value = a.notification_email || '';
+
+      const editable = a.editable !== false;
+      PROFILE_FIELDS.forEach((f) => { $(f).disabled = !editable; });
+      EDITABLE = editable;
+      if (!editable) {
+        $('saveHint').textContent = 'The demo identity is read-only.';
+      }
+      markClean();   // Save and Discard stay dormant until something actually changes.
+
+      // Role & access
+      $('roleChipSlot').innerHTML = `<span class="rchip t${tier(a.role)}">${esc(a.role_label)}</span>`;
+      $('roleDesc').textContent = a.role_description || '—';
+      $('caps').innerHTML = (a.capabilities || []).map((c) =>
+        `<li class="${c.allowed ? 'yes' : 'no'}"><i class="fas fa-${c.allowed ? 'check' : 'minus'}"></i>${esc(c.name)}</li>`
+      ).join('');
+
+      const rel = relative(a.last_login);
+      $('facts').innerHTML = [
+        ['Signed in with',
+         `<span class="method"><i class="${METHOD_ICONS[a.provider] || 'fas fa-key'}"></i>${esc(a.provider_label)}</span>`],
+        ['Account created', absolute(a.created_at)],
+        ['Last sign-in', `${absolute(a.last_login)}${rel ? `<span class="sub">${esc(rel)}</span>` : ''}`],
+        ['Notifications go to',
+         esc(a.notification_email || a.email || '—') +
+         (a.notification_email ? '' : '<span class="sub">Your sign-in address</span>')],
+        ['User ID', `<span class="mono" style="font-size:11.5px;">${esc(a.uid)}</span>`],
+        ['Role fixed by config', a.is_bootstrap
+          ? 'Yes <span class="sub">Listed in BOOTSTRAP_SUPER_ADMINS — always an admin</span>'
+          : 'No <span class="sub">An admin sets this in Users &amp; Access</span>'],
+      ].map(([k, v]) => `<div class="fact"><span class="fact-k">${k}</span><div class="fact-v">${v}</div></div>`).join('');
+
+      // Password section — one of three states
+      $('pwLocalForm').style.display = a.password_mode === 'local' ? '' : 'none';
+      $('pwFirebase').style.display  = a.password_mode === 'firebase' ? '' : 'none';
+      $('pwNone').style.display      = a.password_mode === 'none' ? '' : 'none';
+      if (a.password_mode === 'local') {
+        $('pwSub').textContent = 'This account signs in with a password stored on this platform.';
+      } else if (a.password_mode === 'firebase') {
+        $('pwSub').textContent = 'This account signs in through Firebase.';
+        $('pwFirebaseHint').textContent = `The link goes to ${a.email}.`;
+        if (a.provider === 'google.com') {
+          $('pwFirebaseDesc').textContent =
+            'You signed in with Google, so there may be no password on this account at all. ' +
+            'If one was added during onboarding, a reset link sent to your sign-in address will change it — ' +
+            'your Google account password is never affected.';
+        }
+      }
+    }
+
+    async function load() {
+      try {
+        const j = await api('/api/profile/me');
+        ME = j.account;
+        render(ME);
+        // Sidebar identity, mirroring the other pages
+        $('sb-user-name').textContent = ME.name || (ME.email ? ME.email.split('@')[0] : 'Signed in');
+        $('sb-user-email').textContent = ME.email || '—';
+        const img = $('sb-avatar'), ini = $('sb-avatar-initial');
+        if (ME.picture) { img.src = ME.picture; img.style.display = ''; ini.style.display = 'none'; }
+        else {
+          ini.textContent = ((ME.email || ME.name || '?').trim()[0] || '?').toUpperCase();
+          img.style.display = 'none'; ini.style.display = '';
+        }
+        $('sb-user').style.display = '';
+        if (ME.role === 'admin') $('sb-users-link').style.display = '';
+      } catch (e) {
+        notice('error', e.message || 'Could not load your account.');
+      }
+    }
+
+    // ─── Save details ───────────────────────────────────────────
+    $('profileForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const payload = {
+        display_name: $('display_name').value.trim(),
+        department: $('department').value.trim(),
+        phone: $('phone').value.trim(),
+        notification_email: $('notification_email').value.trim(),
+      };
+      if (!payload.display_name) { notice('error', 'A display name is required.'); return; }
+      if (payload.notification_email && !payload.notification_email.includes('@')) {
+        notice('error', 'Enter a valid notification email, or leave it blank.');
+        return;
+      }
+      busy($('saveBtn'), true);
+      try {
+        await api('/api/profile/update', { method: 'POST', body: JSON.stringify(payload) });
+        notice('success', 'Your details were saved.');
+        await load();
+      } catch (e) {
+        notice('error', e.message || 'Could not save your details.');
+      } finally {
+        busy($('saveBtn'), false);
+        syncDirty();   // busy() re-enables the button; the dirty state decides whether it stays that way.
+      }
+    });
+
+    $('revertBtn').addEventListener('click', () => {
+      if (ME) { render(ME); notice('info', 'Unsaved changes discarded.'); }
+    });
+
+    // ─── Password: show/hide + strength ─────────────────────────
+    document.querySelectorAll('.pwd-wrap .eye').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = $(btn.dataset.target);
+        if (!input) return;
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.querySelector('i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+      });
+    });
+
+    function scorePassword(p) {
+      if (!p) return 0;
+      let s = 0;
+      if (p.length >= 8)  s++;
+      if (p.length >= 12) s++;
+      if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++;
+      if (/[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p)) s++;
+      return Math.min(s, 4);
+    }
+    function refreshPwUI() {
+      const p1 = $('pwNew').value, p2 = $('pwConfirm').value;
+      $('pwMeter').dataset.strength = String(scorePassword(p1));
+      const m = $('pwMatch');
+      m.className = 'match';
+      if (!p1 && !p2)        m.innerHTML = '&nbsp;';
+      else if (p1.length < 8) { m.textContent = 'At least 8 characters.'; m.classList.add('bad'); }
+      else if (!p2)          m.textContent = 'Re-enter it to confirm.';
+      else if (p1 !== p2)    { m.textContent = "Passwords don't match yet."; m.classList.add('bad'); }
+      else                   { m.textContent = '✓ Passwords match.'; m.classList.add('ok'); }
+    }
+    $('pwNew').addEventListener('input', refreshPwUI);
+    $('pwConfirm').addEventListener('input', refreshPwUI);
+
+    $('pwLocalForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const current = $('pwCurrent').value;
+      const p1 = $('pwNew').value, p2 = $('pwConfirm').value;
+      if (!current)      { notice('error', 'Enter your current password.'); return; }
+      if (p1.length < 8) { notice('error', 'New password must be at least 8 characters.'); return; }
+      if (p1 !== p2)     { notice('error', "The two new passwords don't match."); return; }
+      busy($('pwSaveBtn'), true);
+      try {
+        await api('/api/profile/password', {
+          method: 'POST',
+          body: JSON.stringify({ current_password: current, new_password: p1 }),
+        });
+        $('pwLocalForm').reset();
+        refreshPwUI();
+        notice('success', 'Your password was changed. It applies the next time you sign in.');
+      } catch (e) {
+        notice('error', e.message || 'Could not change the password.');
+      } finally {
+        busy($('pwSaveBtn'), false);
+      }
+    });
+
+    // ─── Password: Firebase reset link ──────────────────────────
+    // Loaded on demand — local accounts never need the Firebase SDK.
+    let firebaseReady = null;
+    function ensureFirebase() {
+      if (firebaseReady) return firebaseReady;
+      firebaseReady = new Promise((resolve, reject) => {
+        if (window.firebase && firebase.auth) { resolve(); return; }
+        const load = (src) => new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = src; s.onload = res; s.onerror = () => rej(new Error('Could not reach Firebase.'));
+          document.head.appendChild(s);
+        });
+        load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
+          .then(() => load('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'))
+          .then(() => {
+            // Config supplied by the server from TI_FIREBASE_* (see
+            // .env.example) — same source as the login page.
+            firebase.initializeApp({{ firebase_config | tojson }});
+            resolve();
+          })
+          .catch(reject);
+      });
+      return firebaseReady;
+    }
+
+    const FB_ERRORS = {
+      'auth/user-not-found': 'No Firebase password exists for this address, so there is nothing to reset. ' +
+                             'Keep signing in with Google, or ask an admin for a local account.',
+      'auth/invalid-email': 'Firebase rejected this address as invalid.',
+      'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.',
+      'auth/network-request-failed': 'Network error reaching Firebase. Check your connection and try again.',
+      'auth/operation-not-allowed': 'Email/password sign-in is disabled in the Firebase console. Ask an admin to enable it.',
+    };
+
+    $('pwResetBtn').addEventListener('click', async () => {
+      if (!ME || !ME.email) { notice('error', 'No email on file for this account.'); return; }
+      busy($('pwResetBtn'), true);
+      try {
+        await ensureFirebase();
+        await firebase.auth().sendPasswordResetEmail(ME.email);
+        notice('success', `Reset link sent to ${ME.email}. It is valid for one hour — check your spam folder if it does not arrive.`);
+      } catch (e) {
+        notice('error', FB_ERRORS[e.code] || e.message || 'Could not send the reset email.');
+      } finally {
+        busy($('pwResetBtn'), false);
+      }
+    });
+
+    // ─── Session ────────────────────────────────────────────────
+    async function signOut() {
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+      // Clear the Firebase client session too, so the next visit doesn't auto-restore it.
+      try {
+        if (window.firebase && firebase.auth) await firebase.auth().signOut();
+      } catch (e) {}
+      window.location.href = '/login';
+    }
+    $('signOutBtn').addEventListener('click', signOut);
+    $('sb-logout').addEventListener('click', signOut);
+
+    // ─── Chrome ─────────────────────────────────────────────────
+    $('theme-toggle').addEventListener('click', () => {
+      const dark = document.documentElement.classList.toggle('dark');
+      try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+    });
+
+    async function loadPendingBadge() {
+      try {
+        const r = await fetch('/api/admin/access-requests');
+        if (!r.ok) return;
+        const j = await r.json();
+        const badge = $('sb-pending-badge');
+        const n = j.pending_count || 0;
+        badge.textContent = n;
+        badge.classList.toggle('show', n > 0);
+      } catch (e) {}
+    }
+
+    load().then(() => { if (ME && ME.role === 'admin') loadPendingBadge(); });
+  </script>
+</body>
+</html>

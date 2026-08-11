@@ -1,0 +1,3423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Cyber Watch · IT Internal Audit</title>
+    <link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+    <script>
+      // Pre-paint theme application — prevents flash-of-wrong-theme.
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Geist font (matches SOD Frontend) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap">
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+
+    <style>
+        :root {
+            /* Brand palette — mirrors SOD Frontend */
+            --brand-blue:  #2F6BFF;
+            --brand-dark:  #13294B;
+            --brand-bg:    #F5F7FA;
+            --brand-tint:  #EAF0FF;
+
+            --slate-50:  #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+
+            --success-green: #10b981;
+            --warning-amber: #f59e0b;
+            --danger-rose:   #e11d48;
+
+            /* Legacy aliases kept for unchanged markup below */
+            --primary-blue:  var(--brand-bg);
+            --accent-blue:   var(--brand-blue);
+            --dark-blue:     var(--brand-dark);
+            --alert-red:     var(--danger-rose);
+        }
+
+        body {
+            font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--brand-bg);
+            color: var(--brand-dark);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── Dashboard header (white, sticky, branded) ───────── */
+        .dashboard-header {
+            background: #ffffff;
+            color: var(--brand-dark);
+            padding: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--slate-200);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .dashboard-header .brand-row {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .dashboard-header .brand-logo {
+            display: flex; align-items: center; gap: 12px;
+            text-decoration: none;
+        }
+        .dashboard-header .brand-logo img { height: 28px; width: auto; display: block; }
+        .dashboard-header .brand-divider {
+            width: 1px; height: 32px; background: var(--slate-200);
+        }
+        .dashboard-header h1 {
+            font-size: 16px !important;
+            font-weight: 600;
+            color: var(--brand-dark);
+            letter-spacing: -0.01em;
+            line-height: 1.15;
+            margin: 0 !important;
+        }
+        .dashboard-header .brand-sub {
+            font-size: 10.5px;
+            color: var(--slate-400);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-top: 2px;
+        }
+        .dashboard-header .right-meta { color: var(--slate-500); font-size: 13px; }
+        .dashboard-header .right-meta small { color: var(--slate-400) !important; opacity: 1 !important; font-size: 11px; }
+        .dashboard-header .btn-admin {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--brand-dark); color: #fff;
+            padding: 6px 14px; border-radius: 6px;
+            font-size: 12.5px; font-weight: 600;
+            text-decoration: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: background .15s;
+        }
+        .dashboard-header .btn-admin:hover { background: #001a4f; color: #fff; }
+        .dashboard-header .user-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 4px 12px 4px 4px; height: 36px;
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 999px;
+            font-size: 12.5px; font-weight: 600;
+            color: var(--brand-dark);
+            max-width: 260px;
+            cursor: pointer;
+            transition: background .15s, border-color .15s, box-shadow .15s;
+        }
+        .dashboard-header .user-chip:hover {
+            background: var(--slate-50); border-color: var(--brand-blue);
+            box-shadow: 0 1px 3px rgba(0,33,113,0.08);
+        }
+        .dashboard-header .user-chip img,
+        .dashboard-header .user-chip #user-initial {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-dark) 100%);
+            color: #fff;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .dashboard-header .user-chip #user-email {
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            max-width: 160px;
+        }
+        .dashboard-header .user-chip .chip-caret {
+            color: var(--slate-400); font-size: 10px; margin-left: 2px;
+        }
+        html.dark .dashboard-header .user-chip {
+            background: #0e1832; border-color: #1f2c4d; color: #f1f5f9;
+        }
+        html.dark .dashboard-header .user-chip:hover {
+            background: #182446; border-color: var(--brand-blue);
+        }
+
+        /* ─── Left collapsing sidebar (hover-to-expand) ──────────── */
+        :root { --sidebar-w-collapsed: 60px; --sidebar-w-expanded: 220px; }
+        .app-sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w-collapsed);
+            background: #ffffff;
+            border-right: 1px solid var(--slate-200);
+            z-index: 1050;
+            display: flex; flex-direction: column;
+            padding: 12px 8px;
+            overflow: hidden;
+            transition: width .26s cubic-bezier(.25,.1,.25,1), box-shadow .26s;
+            font-family: "Geist", "Inter", system-ui, sans-serif;
+        }
+        .app-sidebar:hover {
+            width: var(--sidebar-w-expanded);
+            box-shadow: 4px 0 24px rgba(2,6,23,0.10);
+        }
+        .app-sidebar .sb-logo {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 8px 14px;
+            border-bottom: 1px solid var(--slate-100);
+            margin-bottom: 10px;
+            text-decoration: none;
+        }
+        .app-sidebar .sb-logo img { height: 28px; width: 28px; min-width: 28px; }
+        .app-sidebar .sb-logo .sb-logo-text {
+            font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+            color: var(--brand-dark);
+            text-transform: uppercase;
+            white-space: nowrap;
+            opacity: 0; transform: translateX(-6px);
+            transition: opacity .22s, transform .22s;
+        }
+        .app-sidebar:hover .sb-logo .sb-logo-text { opacity: 1; transform: translateX(0); }
+
+        .app-sidebar .sb-links {
+            display: flex; flex-direction: column; gap: 2px;
+            flex: 1 1 auto;
+            margin-top: 2px;
+            overflow-y: auto;
+        }
+        .app-sidebar .sb-link {
+            display: flex; align-items: center; gap: 12px;
+            padding: 9px 10px;
+            border: none; background: transparent;
+            color: var(--slate-600);
+            border-radius: 9px;
+            font-size: 13.5px; font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: left;
+            white-space: nowrap;
+            transition: background .15s, color .15s;
+            position: relative;
+        }
+        .app-sidebar .sb-link:hover {
+            background: var(--brand-tint);
+            color: var(--brand-dark);
+        }
+        /* Pending access-request count: a dot while collapsed, a number once expanded. */
+        .app-sidebar .sb-badge {
+            position: absolute; top: 6px; left: 30px;
+            min-width: 8px; height: 8px; border-radius: 999px;
+            background: #e11d48; display: none;
+        }
+        .app-sidebar .sb-badge.show { display: block; }
+        .app-sidebar:hover .sb-badge {
+            position: static; margin-left: auto;
+            height: 18px; min-width: 18px; padding: 0 5px;
+            color: #fff; font-size: 11px; font-weight: 700;
+            display: none; align-items: center; justify-content: center;
+        }
+        .app-sidebar:hover .sb-badge.show { display: inline-flex; }
+        .app-sidebar .sb-link.active {
+            background: var(--brand-tint);
+            color: var(--brand-dark);
+            box-shadow: inset 3px 0 0 var(--brand-blue);
+            font-weight: 600;
+        }
+        .app-sidebar .sb-link .sb-ico {
+            width: 28px; min-width: 28px; height: 28px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 15px;
+        }
+        .app-sidebar .sb-link .sb-label {
+            opacity: 0; transform: translateX(-6px);
+            transition: opacity .25s, transform .25s;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .app-sidebar:hover .sb-link .sb-label {
+            opacity: 1; transform: translateX(0);
+        }
+
+        .app-sidebar .sb-foot {
+            flex-shrink: 0;
+            border-top: 1px solid var(--slate-100);
+            padding-top: 10px; margin-top: 8px;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .app-sidebar .sb-user {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 10px;
+            border-radius: 8px; text-decoration: none;
+            transition: background .15s;
+        }
+        .app-sidebar a.sb-user:hover { background: var(--slate-100); }
+        .app-sidebar .sb-avatar,
+        .app-sidebar .sb-avatar-initial {
+            width: 28px; min-width: 28px; height: 28px;
+            border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-dark) 100%);
+            color: #fff;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .app-sidebar .sb-user-meta {
+            min-width: 0; flex: 1;
+            opacity: 0; transform: translateX(-6px);
+            transition: opacity .25s, transform .25s;
+        }
+        .app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
+        .app-sidebar .sb-user-meta .name {
+            font-size: 12.5px; font-weight: 600; color: var(--brand-dark);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .app-sidebar .sb-user-meta .email {
+            font-size: 11px; color: var(--slate-500);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .app-sidebar .sb-logout { color: #b91c1c; }
+        .app-sidebar .sb-logout:hover {
+            background: #fee2e2; color: #991b1b;
+        }
+        .app-sidebar .sb-logout:disabled { opacity: .55; cursor: not-allowed; }
+
+        /* Push main content to the right of the rail */
+        body { padding-left: var(--sidebar-w-collapsed); }
+
+        /* Dark mode */
+        html.dark .app-sidebar {
+            background: #0a1226; border-right-color: #1f2c4d;
+        }
+        html.dark .app-sidebar:hover {
+            box-shadow: 4px 0 24px rgba(0,0,0,0.35);
+        }
+        html.dark .app-sidebar .sb-logo { border-bottom-color: #1f2c4d; }
+        html.dark .app-sidebar .sb-logo .sb-logo-text { color: #f1f5f9; }
+        html.dark .app-sidebar .sb-link { color: #94a3b8; }
+        html.dark .app-sidebar .sb-link:hover { background: #1a2540; color: #f1f5f9; }
+        html.dark .app-sidebar .sb-link.active {
+            background: #1a2540; color: #f1f5f9;
+            box-shadow: inset 3px 0 0 var(--brand-blue);
+        }
+        html.dark .app-sidebar .sb-foot { border-top-color: #1f2c4d; }
+        html.dark .app-sidebar a.sb-user:hover { background: #1a2540; }
+        html.dark .app-sidebar .sb-user-meta .name { color: #f1f5f9; }
+        html.dark .app-sidebar .sb-user-meta .email { color: #94a3b8; }
+        html.dark .app-sidebar .sb-logout { color: #fca5a5; }
+        html.dark .app-sidebar .sb-logout:hover { background: #3a1117; color: #fecaca; }
+
+        /* On narrow screens, hide the sidebar entirely so the dashboard
+           keeps its full width and the rail doesn't crowd small layouts. */
+        @media (max-width: 768px) {
+            .app-sidebar { display: none; }
+            body { padding-left: 0; }
+        }
+        .dashboard-header .btn-refresh {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #ffffff; color: var(--brand-dark);
+            padding: 6px 14px; border-radius: 6px;
+            font-size: 12.5px; font-weight: 600;
+            border: 1px solid var(--slate-200);
+            cursor: pointer;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .dashboard-header .btn-refresh:hover {
+            background: var(--brand-tint);
+            border-color: var(--brand-blue);
+            color: var(--brand-dark);
+        }
+        .dashboard-header .btn-refresh:disabled {
+            opacity: 0.55; cursor: not-allowed;
+        }
+        html.dark .btn-refresh { background: #111a2e !important; color: #cbd5e1 !important; border-color: var(--slate-200) !important; }
+        html.dark .btn-refresh:hover { background: rgba(47,107,255,0.10) !important; border-color: var(--brand-blue) !important; color: #f1f5f9 !important; }
+
+        /* ─── Cards ───────────────────────────────────────────────── */
+        .status-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            border: 1px solid var(--slate-200);
+            margin-bottom: 1.5rem;
+            transition: box-shadow .2s, border-color .2s;
+        }
+        .status-card:hover {
+            box-shadow: 0 4px 12px rgba(0,41,112,0.06);
+            border-color: var(--slate-300);
+        }
+        .status-card h4 {
+            color: var(--brand-dark);
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .max-height-400 { max-height: 400px; }
+        .overflow-auto { overflow-y: auto; }
+
+        /* ─── Buttons (Brand style) ───────────────────────────────── */
+        .btn-primary {
+            background: var(--brand-dark) !important;
+            border: 1px solid var(--brand-dark) !important;
+            color: #ffffff !important;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0;
+            text-transform: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: background .15s, transform .15s;
+        }
+        .btn-primary:hover {
+            background: #001a4f !important;
+            border-color: #001a4f !important;
+            transform: none;
+            box-shadow: 0 2px 6px rgba(0,41,112,0.18);
+        }
+
+        .btn-success {
+            background: var(--success-green) !important;
+            border: 1px solid var(--success-green) !important;
+            color: #ffffff !important;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .btn-success:hover { background: #059669 !important; border-color: #059669 !important; }
+
+        .btn-info {
+            background: var(--brand-blue) !important;
+            border: 1px solid var(--brand-blue) !important;
+            color: #ffffff !important;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .btn-info:hover { background: #0095c4 !important; border-color: #0095c4 !important; color: #fff !important; }
+
+        .btn-warning {
+            background: var(--warning-amber) !important;
+            border: 1px solid var(--warning-amber) !important;
+            color: #ffffff !important;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .btn-lg { padding: 10px 22px; font-size: 14px; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* ─── Status indicators ───────────────────────────────────── */
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+        }
+        /* Conventional colour mapping:
+             stopped/idle = "Ready"  → green
+             running      = busy     → amber (pulses to draw attention)
+             error                    → red */
+        .status-stopped { background: var(--success-green); box-shadow: 0 0 0 3px rgba(16,185,129,0.22); }
+        .status-running { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.25); animation: pulse-amber 1.6s ease-in-out infinite; }
+        .status-error   { background: var(--danger-rose);   box-shadow: 0 0 0 3px rgba(225,29,72,0.18); }
+        @keyframes pulse-amber {
+            0%, 100% { box-shadow: 0 0 0 3px rgba(245,158,11,0.25); }
+            50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0.10); }
+        }
+
+        /* ─── Header status pill ──────────────────────────────────────
+           Wraps the state dot + phase icon + message into one contained
+           chip so a long operation message can't shove the theme toggle
+           around: the text ellipsises inside a bounded box instead. The
+           phase icon replaces the emoji that used to be baked into the
+           message text (see operation_phase in web_dashboard.py). */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            max-width: 440px;
+            padding: 5px 13px 5px 10px;
+            border-radius: 999px;
+            background: var(--slate-100);
+            border: 1px solid var(--slate-200);
+            color: var(--slate-600);
+            font-size: 12.5px;
+            font-weight: 500;
+            line-height: 1.35;
+            transition: background .2s, border-color .2s, color .2s;
+        }
+        /* The dot supplies its own spacing outside the pill; inside, the
+           flex gap owns it. */
+        .status-pill .status-indicator { margin-right: 0; flex: none; }
+        .status-pill .sp-icon  { font-size: 11px; flex: none; opacity: .9; }
+        .status-pill .sp-icon:empty { display: none; }
+        .status-pill .sp-text  {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        /* State tints. Colour matches the dot convention above:
+           ready = green, busy = amber, error = rose. */
+        .status-pill.is-ready { background:#ecfdf5; border-color:#a7f3d0; color:#047857; }
+        .status-pill.is-busy  { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+        .status-pill.is-error { background:#fff1f2; border-color:#fecdd3; color:#9f1239; }
+
+        @media (max-width: 991px) {
+            .status-pill { max-width: 220px; font-size: 12px; }
+        }
+
+        /* Generic determinate progress bar */
+        .progress-bar {
+            background: linear-gradient(90deg, var(--brand-blue), var(--brand-dark));
+            border-radius: 10px;
+            height: 8px;
+        }
+
+        /* ─── Operation loading bar (indeterminate) ───────────────────
+           Sleek Material-style dual-sweep used while scraping / running
+           the workflow. Two brand-gradient bars glide across a soft track. */
+        #operationProgress {
+            position: relative;
+            height: 4px !important;
+            padding: 0;
+            background: var(--slate-100);
+            border-radius: 999px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(0,41,112,0.05);
+        }
+        /* Bootstrap's actual bar element is unused — the sweep lives on
+           the container's pseudo-elements for smooth, GPU-friendly motion. */
+        #operationProgress .progress-bar {
+            display: none;
+        }
+        #operationProgress::before,
+        #operationProgress::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg,
+                        rgba(47,107,255,0.55) 0%,
+                        var(--brand-blue) 45%,
+                        var(--brand-dark) 100%);
+            box-shadow: 0 0 10px rgba(47,107,255,0.45);
+            will-change: left, right;
+        }
+        #operationProgress::before {
+            animation: opbar-primary 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+        }
+        #operationProgress::after {
+            animation: opbar-secondary 2.1s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+            animation-delay: 1.05s;
+        }
+        @keyframes opbar-primary {
+            0%   { left: -35%; right: 100%; }
+            60%  { left: 100%; right: -90%; }
+            100% { left: 100%; right: -90%; }
+        }
+        @keyframes opbar-secondary {
+            0%   { left: -200%; right: 100%; }
+            60%  { left: 107%; right: -8%; }
+            100% { left: 107%; right: -8%; }
+        }
+        html.dark #operationProgress {
+            background: rgba(148,163,184,0.16);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+        html.dark #operationProgress::before,
+        html.dark #operationProgress::after {
+            box-shadow: 0 0 12px rgba(47,107,255,0.6);
+        }
+        /* Respect users who prefer reduced motion — replace the sweep with
+           a gentle, non-moving opacity pulse. */
+        @media (prefers-reduced-motion: reduce) {
+            #operationProgress::after { display: none; }
+            #operationProgress::before {
+                left: 0; right: 0;
+                animation: opbar-pulse 1.6s ease-in-out infinite;
+            }
+            @keyframes opbar-pulse {
+                0%, 100% { opacity: 0.45; }
+                50%      { opacity: 1; }
+            }
+        }
+
+        /* ─── Inline "stop scrape" cross ──────────────────────────── */
+        .operation-timer-row { align-items: center; gap: 10px; }
+        .stop-cross {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: #ef4444;
+            color: #fff;
+            cursor: pointer;
+            line-height: 1;
+            transition: background .15s ease, transform .15s ease;
+        }
+        .stop-cross:hover { background: #dc2626; transform: scale(1.08); }
+        .stop-cross:disabled { opacity: .6; cursor: default; transform: none; }
+
+        /* ─── Metric cards ────────────────────────────────────────── */
+        .metric-card {
+            text-align: center;
+            padding: 1.5rem;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid var(--slate-200);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: box-shadow .2s, border-color .2s;
+        }
+        .metric-card:hover {
+            box-shadow: 0 4px 12px rgba(0,41,112,0.06);
+            border-color: var(--brand-blue);
+        }
+        .metric-number {
+            font-size: 2.25rem;
+            font-weight: 600;
+            color: var(--brand-dark);
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+        .metric-label {
+            color: var(--slate-500);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        /* ─── Tabs ────────────────────────────────────────────────── */
+        .nav-tabs {
+            border-bottom: 1px solid var(--slate-200);
+            gap: 4px;
+        }
+        .nav-tabs .nav-link {
+            border: none;
+            border-radius: 6px 6px 0 0;
+            color: var(--slate-500);
+            font-weight: 500;
+            font-size: 13px;
+            padding: 10px 16px;
+            margin-right: 0;
+            border-bottom: 2px solid transparent;
+            transition: color .15s, border-color .15s, background .15s;
+        }
+        .nav-tabs .nav-link:hover {
+            color: var(--brand-dark);
+            background: var(--slate-100);
+            border-color: transparent;
+        }
+        .nav-tabs .nav-link.active {
+            background: transparent;
+            color: var(--brand-dark);
+            border-bottom: 2px solid var(--brand-blue);
+            font-weight: 600;
+        }
+        .nav-tabs .nav-link i { color: var(--brand-blue); }
+
+        .table-hover tbody tr:hover { background-color: var(--brand-tint); }
+        .table { color: var(--brand-dark); }
+        .table thead th {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: var(--slate-500);
+            border-bottom: 1px solid var(--slate-200);
+        }
+
+        /* ─── Badges ──────────────────────────────────────────────── */
+        .badge {
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-weight: 500;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+        .badge-pending         { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .badge-approved        { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+        .badge-rejected        { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .badge-cancelled       { background: var(--slate-100); color: var(--slate-600); border: 1px solid var(--slate-200); }
+        .badge-sent            { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }
+        .badge-failed          { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .badge-scheduled       { background: var(--brand-tint); color: var(--brand-dark); border: 1px solid rgba(47,107,255,0.4); }
+        .badge-delivered       { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }
+        .badge-ready           { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+        .badge-awaiting-sender { background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; }
+        .badge-sender-approved { background: var(--brand-tint); color: var(--brand-dark); border: 1px solid rgba(47,107,255,0.4); }
+
+        /* ─── Activity feed ───────────────────────────────────────── */
+        .activity-feed { max-height: 400px; overflow-y: auto; }
+        .activity-item {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--slate-100);
+            display: flex;
+            align-items: center;
+        }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            margin-right: 12px;
+            font-size: 13px;
+            color: #ffffff;
+            background: var(--brand-blue);
+            flex-shrink: 0;
+        }
+
+        .spinner-border-sm { width: 1rem; height: 1rem; }
+
+        /* ─── Bootstrap overrides for consistency ─────────────────── */
+        .card { border: 1px solid var(--slate-200) !important; border-radius: 12px !important; }
+        .form-control, .form-select {
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--brand-dark);
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--brand-blue);
+            box-shadow: 0 0 0 3px rgba(47,107,255,0.15);
+        }
+        code { color: var(--brand-dark); background: var(--slate-100); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #b0c4d8; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7a9bb5; }
+
+        /* ─── Refined section card (header + body + sub-blocks) ──── */
+        .section-card {
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            overflow: hidden;
+            margin-bottom: 20px;
+            transition: box-shadow .2s, border-color .2s;
+        }
+        .section-card:hover { box-shadow: 0 4px 14px rgba(0,41,112,0.05); }
+        .section-card-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--slate-100);
+            background: linear-gradient(to right, var(--slate-50), #ffffff);
+        }
+        .section-card-head .icon-chip {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--brand-tint);
+            color: var(--brand-dark);
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+        .section-card-head .icon-chip.navy { background: var(--brand-dark); color: #fff; }
+        .section-card-head .icon-chip.cyan { background: var(--brand-blue); color: #fff; }
+        .section-card-head .titles { flex: 1; min-width: 0; }
+        .section-card-head h3 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--brand-dark);
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+        }
+        .section-card-head .subtitle {
+            margin-top: 2px;
+            font-size: 12.5px;
+            color: var(--slate-500);
+            line-height: 1.4;
+        }
+        .section-card-head .right-actions {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-card-body { padding: 18px 22px; }
+        .section-card-body.compact { padding: 14px 22px; }
+
+        /* Sub-block inside a card (e.g. picker, action group) */
+        .sub-block {
+            border: 1px solid var(--slate-200);
+            border-radius: 10px;
+            padding: 14px 16px;
+            background: var(--slate-50);
+        }
+        .sub-block + .sub-block { margin-top: 12px; }
+        .sub-block .sub-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--slate-500);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .sub-block .help-text {
+            font-size: 12px;
+            color: var(--slate-500);
+            margin-top: 8px;
+        }
+
+        /* Action button row inside cards */
+        .action-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .action-divider {
+            color: var(--slate-400);
+            font-size: 12px;
+            padding: 0 4px;
+            user-select: none;
+        }
+
+        /* Empty / placeholder state */
+        .empty-state {
+            font-size: 12.5px;
+            color: var(--slate-400);
+            font-style: italic;
+            padding: 10px 14px;
+            background: var(--slate-50);
+            border: 1px dashed var(--slate-200);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        /* Refined metric cards with icon chips */
+        .metric-card {
+            position: relative;
+            text-align: left;
+            padding: 18px 20px;
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: box-shadow .2s, border-color .2s, transform .2s;
+            min-height: 100px;
+        }
+        .metric-card:hover {
+            box-shadow: 0 6px 16px rgba(0,41,112,0.07);
+            border-color: var(--brand-blue);
+            transform: translateY(-1px);
+        }
+        .metric-card .metric-icon {
+            position: absolute;
+            top: 14px; right: 14px;
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--brand-tint);
+            color: var(--brand-dark);
+            font-size: 14px;
+        }
+        .metric-card .metric-icon.amber { background: #fef3c7; color: #92400e; }
+        .metric-card .metric-icon.cyan  { background: var(--brand-tint); color: var(--brand-dark); }
+        .metric-card .metric-icon.emerald { background: #d1fae5; color: #047857; }
+        .metric-card .metric-icon.rose { background: #fee2e2; color: #b91c1c; }
+        .metric-card .metric-label {
+            color: var(--slate-500);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+            margin: 0;
+        }
+        .metric-card .metric-number {
+            font-size: 2.1rem;
+            font-weight: 600;
+            color: var(--brand-dark);
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-top: 6px;
+        }
+        .metric-card .metric-sub {
+            font-size: 11.5px;
+            color: var(--slate-400);
+            margin-top: 4px;
+        }
+
+        /* Status pill (used in operation status line) */
+        .status-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: var(--brand-tint);
+            color: var(--brand-dark);
+            font-size: 12.5px;
+            font-weight: 500;
+        }
+        .status-line.idle {
+            background: #d1fae5;
+            color: #047857;
+        }
+
+        /* Form controls inside sub-blocks */
+        .sub-block .form-select,
+        .sub-block .form-control {
+            height: 36px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header .brand-row { min-height: 64px; flex-wrap: wrap; gap: 8px; }
+            .metric-number { font-size: 1.6rem; }
+            .btn-lg { padding: 8px 16px; font-size: 13px; }
+        }
+
+        /* ─── Toast notifications (brand-themed, stack, animated) ── */
+        #toast-stack {
+            position: fixed;
+            top: 24px; right: 24px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            pointer-events: none;       /* clicks pass through gaps */
+        }
+        .toast-card {
+            pointer-events: auto;
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 14px 12px 12px;
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-left: 3px solid var(--brand-blue);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 41, 112, 0.12);
+            font-family: "Geist", "Inter", system-ui, sans-serif;
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--brand-dark);
+            opacity: 0;
+            transform: translateX(20px);
+            transition: opacity .25s ease-out, transform .25s ease-out;
+        }
+        .toast-card.in    { opacity: 1; transform: translateX(0); }
+        .toast-card.out   { opacity: 0; transform: translateX(20px); }
+        .toast-card .toast-icon {
+            width: 24px; height: 24px;
+            flex-shrink: 0;
+            border-radius: 6px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700;
+            background: var(--brand-tint); color: var(--brand-dark);
+            margin-top: 1px;
+        }
+        .toast-card .toast-body { flex: 1; min-width: 0; word-wrap: break-word; }
+        .toast-card .toast-title {
+            font-weight: 600; font-size: 12.5px;
+            color: var(--brand-dark);
+            margin-bottom: 2px;
+        }
+        .toast-card .toast-msg {
+            color: var(--slate-600);
+            font-size: 12.5px;
+        }
+        .toast-card .toast-close {
+            background: transparent; border: none;
+            color: var(--slate-400); padding: 0;
+            font-size: 16px; line-height: 1; cursor: pointer;
+            width: 18px; height: 18px;
+            margin-top: 2px;
+            border-radius: 4px;
+            transition: color .15s, background .15s;
+        }
+        .toast-card .toast-close:hover { color: var(--brand-dark); background: var(--slate-100); }
+
+        /* Per-kind accents */
+        .toast-card.success { border-left-color: #10b981; }
+        .toast-card.success .toast-icon { background: #d1fae5; color: #047857; }
+        .toast-card.error   { border-left-color: #e11d48; }
+        .toast-card.error   .toast-icon { background: #fee2e2; color: #b91c1c; }
+        .toast-card.warning { border-left-color: #f59e0b; }
+        .toast-card.warning .toast-icon { background: #fef3c7; color: #92400e; }
+        .toast-card.info    { border-left-color: var(--brand-blue); }
+        .toast-card.info    .toast-icon { background: var(--brand-tint); color: var(--brand-dark); }
+
+        /* Dark-mode toast surfaces */
+        html.dark .toast-card { background: #111a2e; border-color: var(--slate-200); color: var(--brand-dark); box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
+        html.dark .toast-card .toast-title { color: #f1f5f9; }
+        html.dark .toast-card .toast-msg   { color: #cbd5e1; }
+        html.dark .toast-card .toast-close { color: #94a3b8; }
+        html.dark .toast-card .toast-close:hover { color: #f1f5f9; background: #1a2540; }
+
+        /* ─── Custom confirm modal (replaces native confirm()) ────── */
+        #confirm-backdrop {
+            position: fixed; inset: 0;
+            background: rgba(2, 6, 23, 0.45);
+            display: none; align-items: center; justify-content: center;
+            z-index: 2100;
+            opacity: 0;
+            transition: opacity .18s ease-out;
+            backdrop-filter: blur(2px);
+        }
+        #confirm-backdrop.in  { display: flex; opacity: 1; }
+        .confirm-dialog {
+            width: min(460px, calc(100vw - 32px));
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(2, 6, 23, 0.28), 0 2px 6px rgba(2, 6, 23, 0.08);
+            overflow: hidden;
+            font-family: "Geist", "Inter", system-ui, sans-serif;
+            transform: scale(.94) translateY(8px);
+            transition: transform .22s cubic-bezier(.16,.84,.36,1);
+        }
+        #confirm-backdrop.in .confirm-dialog { transform: scale(1) translateY(0); }
+        .confirm-dialog .confirm-head {
+            display: flex; align-items: center; gap: 14px;
+            padding: 22px 24px 10px;
+        }
+        .confirm-dialog .confirm-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 19px;
+            background: linear-gradient(135deg, var(--brand-tint) 0%, rgba(47,107,255,0.28) 100%);
+            color: var(--brand-dark);
+            box-shadow: inset 0 0 0 1px rgba(47,107,255,0.30), 0 1px 2px rgba(0,33,113,0.08);
+            flex-shrink: 0;
+        }
+        .confirm-dialog.danger .confirm-icon {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #b91c1c;
+            box-shadow: inset 0 0 0 1px rgba(225,29,72,0.28), 0 1px 2px rgba(159,18,57,0.10);
+        }
+        .confirm-dialog h3 {
+            margin: 0;
+            font-size: 17px; font-weight: 650;
+            color: var(--brand-dark);
+            letter-spacing: -0.015em;
+            line-height: 1.25;
+        }
+        .confirm-dialog .confirm-body {
+            padding: 4px 24px 20px 24px;
+            font-size: 13.5px; color: var(--slate-600);
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+        .confirm-dialog .confirm-input {
+            margin-top: 12px;
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            color: var(--brand-dark);
+            background: #ffffff;
+        }
+        .confirm-dialog .confirm-input:focus {
+            outline: none;
+            border-color: var(--brand-blue);
+            box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+        }
+        .confirm-dialog .confirm-hint {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--slate-500);
+            line-height: 1.5;
+        }
+        .confirm-dialog .confirm-hint.error { color: #e11d48; }
+        .confirm-dialog .confirm-actions {
+            display: flex; justify-content: flex-end; gap: 10px;
+            padding: 16px 24px 18px;
+            background: var(--slate-50);
+            border-top: 1px solid var(--slate-100);
+        }
+        .confirm-dialog button {
+            padding: 0 18px; height: 38px;
+            border-radius: 9px; border: 1px solid transparent;
+            font-size: 13px; font-weight: 600;
+            cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 7px;
+            transition: background .15s, color .15s, border-color .15s, box-shadow .15s, transform .08s;
+        }
+        .confirm-dialog button:active { transform: translateY(1px); }
+        .confirm-dialog button.cancel {
+            background: #ffffff; color: var(--slate-600);
+            border-color: var(--slate-200);
+        }
+        .confirm-dialog button.cancel:hover {
+            border-color: var(--slate-400); color: var(--brand-dark);
+            background: var(--slate-50);
+        }
+        .confirm-dialog button.go {
+            background: linear-gradient(180deg, #0033b8 0%, var(--brand-dark) 100%);
+            color: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,33,113,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+        }
+        .confirm-dialog button.go:hover {
+            background: linear-gradient(180deg, #0040d8 0%, #001a4f 100%);
+            box-shadow: 0 4px 12px rgba(0,33,113,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .confirm-dialog button.go:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(47,107,255,0.35), 0 1px 2px rgba(0,33,113,0.25);
+        }
+        .confirm-dialog.danger button.go {
+            background: linear-gradient(180deg, #e11d48 0%, #b91c1c 100%);
+            box-shadow: 0 1px 2px rgba(159,18,57,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+        }
+        .confirm-dialog.danger button.go:hover {
+            background: linear-gradient(180deg, #f43f5e 0%, #9f1239 100%);
+            box-shadow: 0 4px 12px rgba(159,18,57,0.32), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .confirm-dialog.danger button.go { background: #e11d48; }
+        .confirm-dialog.danger button.go:hover { background: #be123c; }
+
+        html.dark .confirm-dialog { background: #111a2e; border-color: var(--slate-200); }
+        html.dark .confirm-dialog h3 { color: #f1f5f9; }
+        html.dark .confirm-dialog .confirm-body { color: #cbd5e1; }
+        html.dark .confirm-dialog .confirm-actions { background: #0f172a; border-top-color: var(--slate-200); }
+        html.dark .confirm-dialog .confirm-input { background: #0f172a; color: var(--brand-dark); border-color: var(--slate-200); }
+        html.dark .confirm-dialog .confirm-hint { color: #94a3b8; }
+        html.dark .confirm-dialog .confirm-hint.error { color: #fb7185; }
+        html.dark .confirm-dialog .confirm-input::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+        html.dark .confirm-dialog button.cancel { background: #0f172a; color: #cbd5e1; border-color: var(--slate-200); }
+        html.dark .confirm-dialog button.cancel:hover { color: #f1f5f9; border-color: var(--brand-blue); }
+        html.dark .confirm-dialog button.go { background: var(--brand-blue); color: #0b1220; }
+        html.dark .confirm-dialog button.go:hover { background: #38d2ff; }
+
+        /* ─── Per-row delete button (e.g. Scraping History) ──────── */
+        .btn-row-delete {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            border: 1px solid var(--slate-200);
+            background: transparent;
+            color: var(--slate-400);
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: all .15s;
+            padding: 0;
+        }
+        .btn-row-delete:hover {
+            color: var(--danger-rose);
+            border-color: var(--danger-rose);
+            background: #fff5f7;
+        }
+        .btn-row-delete:disabled { opacity: .4; cursor: not-allowed; }
+        html.dark .btn-row-delete { border-color: var(--slate-200); color: #94a3b8; }
+        html.dark .btn-row-delete:hover { background: rgba(225,29,72,0.10); color: #fca5a5; border-color: var(--danger-rose); }
+
+        /* ─── Theme toggle button (in header) ─────────────────────── */
+        /* Pill-style theme toggle (ported from the shadcn/Tailwind reference) */
+        .theme-toggle {
+            width: 64px; height: 32px;
+            padding: 4px;
+            border-radius: 9999px;
+            border: 1px solid var(--slate-200);
+            background: #ffffff;
+            display: inline-flex; align-items: center;
+            cursor: pointer;
+            transition: background .3s, border-color .3s;
+            margin-left: 10px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html.dark .theme-toggle {
+            background: #09090b; /* zinc-950 */
+            border-color: #27272a; /* zinc-800 */
+        }
+        .theme-toggle:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(47,107,255,0.30);
+        }
+        .theme-toggle .tt-row {
+            display: flex; align-items: center; justify-content: space-between;
+            width: 100%;
+        }
+        .theme-toggle .tt-slot {
+            width: 24px; height: 24px;
+            border-radius: 9999px;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: transform .3s, background .3s, color .3s;
+        }
+        /* Active slot (carries the sliding knob) */
+        .theme-toggle .tt-active {
+            background: #e5e7eb; /* gray-200 */
+            color: #374151;      /* gray-700 */
+            transform: translateX(32px);
+        }
+        html.dark .theme-toggle .tt-active {
+            background: #27272a; /* zinc-800 */
+            color: #ffffff;
+            transform: translateX(0);
+        }
+        /* Inactive slot (the muted icon on the other side) */
+        .theme-toggle .tt-muted {
+            background: transparent;
+            color: #6b7280; /* gray-500 */
+            transform: translateX(-32px);
+        }
+        html.dark .theme-toggle .tt-muted {
+            transform: translateX(0);
+            color: #6b7280;
+        }
+        .theme-toggle .tt-active i,
+        .theme-toggle .tt-muted i { font-size: 14px; line-height: 1; }
+        /* Show only the contextually correct icon per slot */
+        .theme-toggle .tt-active .sun  { display: inline-block; }
+        .theme-toggle .tt-active .moon { display: none; }
+        .theme-toggle .tt-muted  .moon { display: inline-block; }
+        .theme-toggle .tt-muted  .sun  { display: none; }
+        html.dark .theme-toggle .tt-active .sun  { display: none; }
+        html.dark .theme-toggle .tt-active .moon { display: inline-block; }
+        html.dark .theme-toggle .tt-muted  .moon { display: none; }
+        html.dark .theme-toggle .tt-muted  .sun  { display: inline-block; }
+
+        /* ─── DARK MODE OVERRIDES ────────────────────────────────── */
+        html.dark {
+            color-scheme: dark;
+            --brand-bg:   #0b1220;
+            --brand-dark: #e2e8f0;
+            --brand-tint: rgba(47,107,255,0.12);
+            --slate-50:   #131c2f;
+            --slate-100:  #1a2540;
+            --slate-200:  #1f2a44;
+            --slate-300:  #334155;
+            --slate-400:  #64748b;
+            --slate-500:  #94a3b8;
+            --slate-600:  #cbd5e1;
+            --slate-700:  #e2e8f0;
+        }
+        html.dark body {
+            background: var(--brand-bg);
+            color: var(--brand-dark);
+        }
+        html.dark .dashboard-header {
+            background: #0f172a;
+            border-bottom-color: var(--slate-200);
+        }
+        html.dark .brand-logo img { filter: brightness(0) invert(1); }
+        html.dark .dashboard-header h1 { color: #f1f5f9; }
+        html.dark .right-meta { color: #cbd5e1 !important; }
+        html.dark .right-meta small { color: #94a3b8 !important; }
+        /* Status pill — low-chroma fills so the tint reads as a state hint
+           rather than a warning block against the dark navy surface. */
+        html.dark .status-pill { background:#16203a; border-color:#24304d; color:#cbd5e1; }
+        html.dark .status-pill.is-ready { background:rgba(16,185,129,.12);  border-color:rgba(16,185,129,.30); color:#6ee7b7; }
+        html.dark .status-pill.is-busy  { background:rgba(245,158,11,.13); border-color:rgba(245,158,11,.32); color:#fcd34d; }
+        html.dark .status-pill.is-error { background:rgba(225,29,72,.13);  border-color:rgba(225,29,72,.32); color:#fda4af; }
+        html.dark .btn-admin { background: var(--brand-blue); color: #0b1220; }
+        html.dark .btn-admin:hover { background: #38d2ff; color: #0b1220; }
+
+        /* Cards & surfaces */
+        html.dark .status-card,
+        html.dark .section-card,
+        html.dark .metric-card { background: #111a2e; border-color: var(--slate-200); }
+        html.dark .section-card-head {
+            background: linear-gradient(to right, #131c2f, #111a2e);
+            border-bottom-color: var(--slate-200);
+        }
+        html.dark .section-card-head h3 { color: #f1f5f9; }
+        html.dark .section-card-head .subtitle { color: #94a3b8; }
+        html.dark .status-card h4 { color: #f1f5f9; }
+        html.dark .sub-block { background: #0f172a; border-color: var(--slate-200); }
+        html.dark .sub-block .sub-label { color: #94a3b8; }
+        html.dark .sub-block .help-text { color: #94a3b8; }
+
+        /* Metric numbers */
+        html.dark .metric-card .metric-number { color: #f1f5f9; }
+        html.dark .metric-card .metric-label { color: #94a3b8; }
+        html.dark .metric-card .metric-sub { color: #64748b; }
+
+        /* Status line pill */
+        html.dark .status-line {
+            background: rgba(47,107,255,0.12); color: #93c5fd;
+        }
+        html.dark .status-line.idle {
+            background: rgba(16,185,129,0.12); color: #6ee7b7;
+        }
+
+        /* Forms */
+        html.dark .form-control, html.dark .form-select {
+            background: #0f172a;
+            color: var(--brand-dark);
+            border-color: var(--slate-200);
+        }
+        html.dark .form-control:focus, html.dark .form-select:focus {
+            border-color: var(--brand-blue);
+        }
+        html.dark .form-control::placeholder { color: #64748b; }
+        html.dark .form-control[type="date"]::-webkit-calendar-picker-indicator,
+        html.dark .form-control[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        /* Tabs */
+        html.dark .nav-tabs { border-bottom-color: var(--slate-200); }
+        html.dark .nav-tabs .nav-link { color: #94a3b8; }
+        html.dark .nav-tabs .nav-link:hover { background: var(--slate-100); color: #f1f5f9; }
+        html.dark .nav-tabs .nav-link.active { color: #f1f5f9; }
+
+        /* Tables */
+        html.dark .table { color: var(--brand-dark); }
+        html.dark .table thead th { color: #94a3b8; border-bottom-color: var(--slate-200); }
+        html.dark .table-hover tbody tr:hover { background-color: rgba(47,107,255,0.08); }
+        html.dark .table td, html.dark .table th { border-color: var(--slate-200); }
+
+        /* Activity / jobs */
+        html.dark .activity-item { border-bottom-color: var(--slate-200); }
+        html.dark .empty-state { background: #0f172a; border-color: var(--slate-200); color: #64748b; }
+
+        /* Code */
+        html.dark code { background: #1a2540; color: var(--brand-dark); }
+
+        /* Bootstrap card / modal fallback */
+        html.dark .card { background: #111a2e !important; color: var(--brand-dark); }
+        html.dark .text-muted { color: #94a3b8 !important; }
+        html.dark .border-bottom { border-bottom-color: var(--slate-200) !important; }
+        html.dark .border-top { border-top-color: var(--slate-200) !important; }
+        html.dark .bg-light { background: #131c2f !important; }
+        html.dark .modal-content { background: #111a2e; color: var(--brand-dark); }
+        html.dark .modal-header, html.dark .modal-footer { border-color: var(--slate-200); }
+
+        /* Scrollbar */
+        html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+        html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body>
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="brand-row">
+                <a class="brand-logo" href="/">
+                    <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+                    <span class="brand-divider" aria-hidden="true"></span>
+                    <div>
+                        <h1>Weekly Cyber Watch</h1>
+                        <div class="brand-sub">IT Internal Audit · Threat Intelligence</div>
+                    </div>
+                </a>
+                <div class="ms-auto right-meta text-end">
+                    <div class="d-flex align-items-center justify-content-end">
+                        <span class="status-pill is-ready" id="systemStatusPill" role="status" aria-live="polite">
+                            <span class="status-indicator status-stopped" id="systemStatus"></span>
+                            <i class="sp-icon" id="systemStatusIcon" aria-hidden="true"></i>
+                            <span class="sp-text" id="systemStatusText">Ready</span>
+                        </span>
+                        <button type="button" id="theme-toggle" class="theme-toggle ms-3" role="switch" aria-label="Toggle light / dark theme" title="Toggle theme">
+                            <span class="tt-row">
+                                <span class="tt-active tt-slot" aria-hidden="true">
+                                    <i class="fas fa-moon moon"></i>
+                                    <i class="fas fa-sun sun"></i>
+                                </span>
+                                <span class="tt-muted tt-slot" aria-hidden="true">
+                                    <i class="fas fa-sun sun"></i>
+                                    <i class="fas fa-moon moon"></i>
+                                </span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div class="container">
+        <!-- Quick Stats Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="metric-card">
+                    <div class="metric-icon amber"><i class="fas fa-hourglass-half"></i></div>
+                    <div class="metric-label">Pending Approvals</div>
+                    <div class="metric-number" id="pendingCount">{{ status.pending_approvals or 0 }}</div>
+                    <div class="metric-sub">Articles awaiting manager review</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="metric-card">
+                    <div class="metric-icon cyan"><i class="fas fa-paper-plane"></i></div>
+                    <div class="metric-label">Scheduled Deliveries</div>
+                    <div class="metric-number" id="scheduledCount">{{ status.scheduled_deliveries or 0 }}</div>
+                    <div class="metric-sub">Queued for the SOC team</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="metric-card">
+                    <div class="metric-icon emerald"><i class="fas fa-check-double"></i></div>
+                    <div class="metric-label">Approval Rate</div>
+                    <div class="metric-number" id="approvalRate">0%</div>
+                    <div class="metric-sub">Approved out of sent articles</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="metric-card">
+                    <div class="metric-icon emerald"><i class="fas fa-heartbeat"></i></div>
+                    <div class="metric-label">System Health</div>
+                    <div class="metric-number" id="systemHealth"><i class="fas fa-heart text-success"></i></div>
+                    <div class="metric-sub">Connection & scheduler status</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Control Panel -->
+        <div class="section-card">
+            <div class="section-card-head">
+                <div class="icon-chip"><i class="fas fa-cogs"></i></div>
+                <div class="titles">
+                    <h3>System Control Panel</h3>
+                    <div class="subtitle">Run scraping, push to the manager workflow, or open the scheduler.</div>
+                </div>
+                <div class="right-actions">
+                    <div id="currentOperation" class="status-line idle">
+                        <i class="fas fa-check-circle"></i>
+                        <span>System ready</span>
+                    </div>
+                </div>
+            </div>
+            <div class="section-card-body">
+                <div class="progress mb-3" style="display: none;" id="operationProgress" role="progressbar" aria-label="Operation in progress" aria-busy="true">
+                    <div class="progress-bar" role="progressbar"></div>
+                </div>
+                <div id="operationTimer" class="small text-muted mb-3 operation-timer-row" style="display: none;">
+                    <span><i class="fas fa-clock"></i> Elapsed time: <span id="timerDisplay">00:00</span></span>
+                    <button type="button" id="stopScrapeCross" class="stop-cross" onclick="stopScrape()"
+                            title="Stop the scrape" aria-label="Stop the scrape" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="sub-block">
+                    <label class="sub-label">Actions</label>
+                    <div class="action-row">
+                        <button class="btn btn-info" id="freshScrapeButton" onclick="freshScrape()">
+                            <i class="fas fa-search"></i>
+                            <span id="freshScrapeButtonText">Scrape now</span>
+                        </button>
+                        <button class="btn btn-danger" id="stopScrapeButton" onclick="stopScrape()" style="display: none;">
+                            <i class="fas fa-stop"></i>
+                            <span id="stopScrapeButtonText">Stop scrape</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="showSchedule()">
+                            <i class="fas fa-calendar-alt"></i>
+                            Schedule view
+                        </button>
+                    </div>
+                    <div class="help-text">Scrape window is fixed at the last 7 days. Top 10 articles by relevance score are sent to the manager.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabbed Content -->
+        <div class="row">
+            <div class="col-12">
+                <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                            <i class="fas fa-dashboard"></i> Overview
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="news-tab" data-bs-toggle="tab" data-bs-target="#news" type="button" role="tab">
+                            <i class="fas fa-newspaper"></i> News Management
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="scraping-history-tab" data-bs-toggle="tab" data-bs-target="#scraping-history" type="button" role="tab">
+                            <i class="fas fa-history"></i> Scraping History
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="schedule-tab" data-bs-toggle="tab" data-bs-target="#schedule" type="button" role="tab">
+                            <i class="fas fa-calendar"></i> Scheduling
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab">
+                            <i class="fas fa-file-alt"></i> Reports
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                            <i class="fas fa-chart-line"></i> Analytics
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content mt-4" id="dashboardTabContent">
+                    <!-- Overview Tab -->
+                    <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                        <div class="row">
+                            <div class="col-lg-8">
+                                <div class="status-card">
+                                    <h5><i class="fas fa-info-circle"></i> System Overview</h5>
+                                    <div class="row mt-3">
+                                        <div class="col-md-6">
+                                            <p><strong>Last Scraping:</strong> <span id="lastScraping">{{ status.last_scraping or 'Never' }}</span></p>
+                                            <p><strong>Last Email:</strong> <span id="lastEmail">{{ status.last_email_sent or 'Never' }}</span></p>
+                                            <p><strong>System Status:</strong> <span id="systemMode">Operational</span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Pending Manager Approvals:</strong> <span id="pendingApprovals">{{ status.pending_approvals or 0 }}</span></p>
+                                            <p><strong>Scheduled SOC Deliveries:</strong> <span id="scheduledSOC">{{ status.scheduled_deliveries or 0 }}</span></p>
+                                            <p><strong>Next Delivery:</strong> <span id="nextDelivery">Loading...</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="status-card">
+                                    <h5><i class="fas fa-tasks"></i> Quick Actions</h5>
+                                    <div class="d-grid gap-2 mt-3">
+                                        <button class="btn btn-outline-primary" onclick="refreshStatus()">
+                                            <i class="fas fa-sync"></i> Refresh Status
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="checkSchedule()">
+                                            <i class="fas fa-clock"></i> Check Schedule
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- News Management Tab -->
+                    <div class="tab-pane fade" id="news" role="tabpanel">
+                        <div class="status-card">
+                            <div class="row align-items-center mb-3">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-newspaper"></i> News Articles Management</h5>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="filterNews('all')">All</button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="filterNews('pending')">Pending</button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="filterNews('approved')">Approved</button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="filterNews('rejected')">Rejected</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="5%">#</th>
+                                            <th width="40%">Title</th>
+                                            <th width="12%">Source</th>
+                                            <th width="8%">Score</th>
+                                            <th width="20%">Workflow Status</th>
+                                            <th width="10%">Date</th>
+                                            <th width="5%">View</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="newsTableBody">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">
+                                                <i class="fas fa-spinner fa-spin"></i> Loading news articles...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scraping History Tab -->
+                    <div class="tab-pane fade" id="scraping-history" role="tabpanel">
+                        <div class="status-card">
+                            <div class="row align-items-center mb-3">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-history"></i> Scraping Session History</h5>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button class="btn btn-primary btn-sm" onclick="refreshScrapingHistory()">
+                                        <i class="fas fa-sync-alt"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- NOTE: dedicated database integration is deferred and will be added later. -->
+                            <div class="alert alert-info" role="alert">
+                                <i class="fas fa-database"></i>
+                                <strong>Note:</strong> A dedicated database for this section will be added later.
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Session ID</th>
+                                            <th>Date & Time</th>
+                                            <th>Type</th>
+                                            <th>Sources</th>
+                                            <th>Articles Found</th>
+                                            <th>Articles Saved</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scraping-history-table">
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted">
+                                                <i class="fas fa-spinner fa-spin"></i> Loading scraping history...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Session Details Modal -->
+                        <div class="modal fade" id="sessionDetailsModal" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">
+                                            <i class="fas fa-info-circle"></i> Scraping Session Details
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body" id="session-details-content">
+                                        <div class="text-center">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading session details...
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scheduling Tab -->
+                    <div class="tab-pane fade" id="schedule" role="tabpanel">
+                        <div class="status-card">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h5 class="mb-0"><i class="fas fa-calendar"></i> Delivery Schedule</h5>
+                                <button class="btn btn-outline-primary btn-sm" onclick="triggerAllDeliveries()"
+                                        title="Fire every pending delivery now (bypass the scheduled time)">
+                                    <i class="fas fa-play"></i> Trigger All Deliveries
+                                </button>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-8">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Position</th>
+                                                    <th>Article</th>
+                                                    <th>Delivery Date &amp; Time</th>
+                                                    <th>Status</th>
+                                                    <th class="text-end">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="scheduleTableBody">
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">
+                                                        <i class="fas fa-spinner fa-spin"></i> Loading schedule...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="status-card" id="scheduleInfoCard" style="padding: 16px;">
+                                        <h6 style="margin: 0 0 12px; font-size: 11px; font-weight: 600; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.08em;">
+                                            <i class="fas fa-calendar-alt" style="color: var(--brand-blue);"></i> Schedule info
+                                        </h6>
+                                        <div id="scheduleInfoBody" class="small" style="color: var(--slate-600); line-height: 1.7;">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading…
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reports Tab -->
+                    <div class="tab-pane fade" id="reports" role="tabpanel">
+                        <div class="status-card">
+                            <div class="row align-items-center mb-3">
+                                <div class="col-md-6">
+                                    <h5><i class="fas fa-file-alt"></i> SOC Reports Management</h5>
+                                    <small class="text-muted">Track formatted reports status and sender validation</small>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="loadReports()">
+                                        <i class="fas fa-sync"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Report Title</th>
+                                            <th>Source</th>
+                                            <th>Approved Date</th>
+                                            <th>Report Status</th>
+                                            <th>Sender Status</th>
+                                            <th>SOC Delivery</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportsTableBody">
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">
+                                                <i class="fas fa-spinner fa-spin"></i> Loading reports...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-4">
+                                    <div class="metric-card" style="background: #e8f5e8;">
+                                        <div class="metric-number" id="reportsReady" style="color: #28a745;">0</div>
+                                        <div class="metric-label">Reports Ready</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-card" style="background: #fff3cd;">
+                                        <div class="metric-number" id="awaitingSender" style="color: #856404;">0</div>
+                                        <div class="metric-label">Awaiting Sender</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="metric-card" style="background: #e0f2fe;">
+                                        <div class="metric-number" id="delivered" style="color: #1565c0;">0</div>
+                                        <div class="metric-label">Delivered to SOC</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Tab -->
+                    <div class="tab-pane fade" id="analytics" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="status-card">
+                                    <h5><i class="fas fa-chart-pie"></i> Approval Statistics</h5>
+                                    <canvas id="approvalChart" width="400" height="200"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="status-card">
+                                    <h5><i class="fas fa-chart-bar"></i> Source Performance</h5>
+                                    <div id="sourceStats">
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading analytics...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Dashboard JavaScript -->
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Global variables
+        let currentFilter = 'all';
+        let systemRunning = false;
+        let operationStartTime = null;
+        let timerInterval = null;
+
+        // ─── Scraping-in-progress navigation guard ─────────────────────────
+        // While systemRunning === true, warn before:
+        //   • page refresh (hard refresh, Cmd+R / Cmd+Shift+R)
+        //   • tab close, browser back / forward
+        //   • clicking any internal link (Admin pill, "Open Admin Panel", etc.)
+        const SCRAPING_LEAVE_MSG =
+            'Scraping is still running. Leaving now will stop the workflow on the server and you may lose this batch. Continue anyway?';
+
+        window.addEventListener('beforeunload', function (e) {
+            if (!systemRunning) return;
+            e.preventDefault();
+            e.returnValue = SCRAPING_LEAVE_MSG;  // legacy Chrome / Firefox
+            return SCRAPING_LEAVE_MSG;           // legacy Safari
+        });
+
+        // Intercept clicks during scraping so internal nav (which doesn't always
+        // trigger beforeunload in time) also asks for confirmation.
+        document.addEventListener('click', function (e) {
+            if (!systemRunning) return;
+
+            const a = e.target.closest('a[href]');
+            if (!a) return;
+
+            const href = a.getAttribute('href');
+
+            // Skip same-page anchors, Bootstrap tab switches, and javascript:void(0)
+            if (!href
+                || href.startsWith('#')
+                || href.startsWith('javascript:')
+                || a.hasAttribute('data-bs-toggle')) {
+                return;
+            }
+
+            if (!window.confirm(SCRAPING_LEAVE_MSG)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);  // capture phase — beat other listeners
+
+        // Same for form submissions, just in case any are added later.
+        document.addEventListener('submit', function (e) {
+            if (!systemRunning) return;
+            if (!window.confirm(SCRAPING_LEAVE_MSG)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            updateConnectionStatus(true);
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+            updateConnectionStatus(false);
+        });
+
+        socket.on('status_update', function(data) {
+            updateSystemStatus(data);
+        });
+
+        socket.on('operation_complete', function(data) {
+            showOperationComplete(data);
+        });
+
+        // Real-time notification handlers
+        socket.on('approval_notification', function(data) {
+            showNotification('Manager Approval', `Article ${data.article_id} ${data.status}`, 'success');
+            updateSystemStatus(null); // Refresh status
+        });
+
+        socket.on('validation_notification', function(data) {
+            if (data.status === 'validation_sent') {
+                showNotification('📝 Sender Validation', `Validation email sent for article ${data.article_id}`, 'info');
+            } else if (data.status === 'validation_approved') {
+                showNotification('Validation Complete', `Article ${data.article_id} approved by sender`, 'success');
+            }
+            updateSystemStatus(null); // Refresh status
+        });
+
+        socket.on('delivery_notification', function(data) {
+            if (data.status === 'scheduled') {
+                showNotification('📅 SOC Delivery', `Article ${data.article_id} scheduled for delivery`, 'warning');
+            } else if (data.status === 'delivered') {
+                showNotification('🚀 SOC Delivery', `Article ${data.article_id} published`, 'success');
+            }
+            // Immediately re-render the Delivery Schedule so the row flips to its
+            // new status (e.g. "Published"/"Sent") the instant the backend sends,
+            // instead of waiting for the periodic poll.
+            if (typeof loadSchedule === 'function') loadSchedule();
+            if (typeof loadScheduleInfo === 'function') loadScheduleInfo();
+        });
+
+        /* Phase → icon. The backend sets status.operation_phase (see
+           system_status in web_dashboard.py) so the icon no longer depends on
+           the wording of the message — messages can be reworded freely. */
+        const OPERATION_ICONS = {
+            scraping:  'fa-search',
+            selecting: 'fa-list-ol',
+            saving:    'fa-database',
+            sending:   'fa-envelope',
+            clearing:  'fa-trash-alt',
+            stopping:  'fa-hand',
+            done:      'fa-check-circle',
+            error:     'fa-triangle-exclamation',
+        };
+
+        /* Pre-phase fallback: older messages carried their phase in the prose.
+           Kept so a message from a stale/half-deployed backend still gets a
+           sensible icon instead of dropping to the bare spinner. */
+        function legacyPhaseFromText(text) {
+            const t = String(text || '');
+            if (t.includes('Clearing')) return 'clearing';
+            if (t.includes('Scraping') || t.includes('Scrape')) return 'scraping';
+            if (t.includes('Sending') || t.includes('Send')) return 'sending';
+            return null;
+        }
+
+        function operationIconClass(status) {
+            const phase = status.operation_phase || legacyPhaseFromText(status.current_operation);
+            return OPERATION_ICONS[phase] || null;
+        }
+
+        // System status updates
+        function updateSystemStatus(status) {
+            // Update status indicators
+            const statusEl = document.getElementById('systemStatus');
+            const statusTextEl = document.getElementById('systemStatusText');
+            const pillEl = document.getElementById('systemStatusPill');
+            const pillIconEl = document.getElementById('systemStatusIcon');
+
+            if (status.running) {
+                statusEl.className = 'status-indicator status-running';
+                statusTextEl.textContent = status.current_operation || 'Working…';
+            } else {
+                statusEl.className = 'status-indicator status-stopped';
+                statusTextEl.textContent = 'Ready';
+            }
+
+            // Tint the pill to match the dot, and show the phase icon while busy.
+            if (pillEl) pillEl.className = 'status-pill ' + (status.running ? 'is-busy' : 'is-ready');
+            if (pillIconEl) {
+                const iconClass = status.running ? operationIconClass(status) : null;
+                pillIconEl.className = iconClass ? ('sp-icon fas ' + iconClass) : 'sp-icon';
+            }
+            // The pill ellipsises long messages, so keep the full text on hover.
+            if (pillEl) pillEl.title = status.running ? (status.current_operation || '') : 'System ready';
+
+            // Update metrics
+            document.getElementById('pendingCount').textContent = status.pending_approvals || 0;
+            document.getElementById('scheduledCount').textContent = status.scheduled_deliveries || 0;
+            
+            // "Last updated" pill removed from header — guard the write in case
+            // it's reintroduced later.
+            const luEl = document.getElementById('lastUpdate');
+            if (luEl) luEl.textContent = 'Last updated: ' + new Date().toLocaleString();
+
+            // Update operation status with better formatting
+            if (status.current_operation) {
+                const operationEl = document.getElementById('currentOperation');
+                
+                if (status.running) {
+                    // Icon comes from operation_phase; the spinner is the
+                    // fallback when the backend reports no phase.
+                    const iconClass = operationIconClass(status);
+                    const icon = iconClass
+                        ? `<i class="fas ${iconClass}"></i>`
+                        : '<i class="fas fa-spinner fa-spin"></i>';
+
+                    operationEl.className = 'status-line';
+                    operationEl.innerHTML = `${icon}<span>${escapeHtmlMaybe(status.current_operation)}</span>`;
+                    systemRunning = true;     // server says we're running — keep the nav guard on
+                    showProgress();
+                    startTimer();
+                } else {
+                    operationEl.className = 'status-line idle';
+                    operationEl.innerHTML = `<i class="fas fa-check-circle"></i><span>${escapeHtmlMaybe(status.current_operation || 'System ready')}</span>`;
+                    systemRunning = false;    // server says we're idle — release the nav guard
+                    hideProgress();
+                    stopTimer();
+                }
+            }
+
+            // Update buttons.
+            // The icons live in the static markup OUTSIDE the *ButtonText span,
+            // so we only swap the visible label here (no <i> in innerHTML).
+            const freshScrapeBtn = document.getElementById('freshScrapeButton');
+            const freshScrapeText = document.getElementById('freshScrapeButtonText');
+            const stopScrapeBtn = document.getElementById('stopScrapeButton');
+            const stopScrapeText = document.getElementById('stopScrapeButtonText');
+
+            // A Stop button appears only while a fresh scrape is the running op.
+            const isFreshScrape = !!(status.running && status.operation_type === 'fresh_scraping');
+
+            if (status.running) {
+                freshScrapeBtn.disabled = true;
+                freshScrapeText.textContent = isFreshScrape ? 'Scraping…' : 'Scrape now';
+            } else {
+                freshScrapeBtn.disabled = false;
+                freshScrapeText.textContent = 'Scrape now';
+            }
+
+            const stopScrapeCross = document.getElementById('stopScrapeCross');
+            [stopScrapeBtn, stopScrapeCross].forEach(el => {
+                if (el) el.style.display = isFreshScrape ? '' : 'none';
+            });
+            if (!isFreshScrape) {
+                // Reset both controls for the next run once the scrape has ended.
+                if (stopScrapeBtn) stopScrapeBtn.disabled = false;
+                if (stopScrapeCross) stopScrapeCross.disabled = false;
+                if (stopScrapeText) stopScrapeText.textContent = 'Stop scrape';
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('systemStatus');
+            const pillEl = document.getElementById('systemStatusPill');
+            const pillIconEl = document.getElementById('systemStatusIcon');
+            if (!connected) {
+                statusEl.className = 'status-indicator status-error';
+                document.getElementById('systemStatusText').textContent = 'Reconnecting…';
+                // Tint the whole pill, not just the dot — a lost socket is the
+                // one state where a stale message would actively mislead.
+                if (pillEl) {
+                    pillEl.className = 'status-pill is-error';
+                    pillEl.title = 'Lost connection to the server — retrying';
+                }
+                if (pillIconEl) pillIconEl.className = 'sp-icon fas fa-plug-circle-xmark';
+            }
+        }
+
+        // Main system functions
+        function freshScrape() {
+            if (systemRunning) return;
+
+            systemRunning = true;
+            showProgress();
+
+            // Reveal the Stop controls immediately so the user can bail out
+            // without waiting for the first status_update to land.
+            const stopBtn = document.getElementById('stopScrapeButton');
+            const stopTxt = document.getElementById('stopScrapeButtonText');
+            const stopCross = document.getElementById('stopScrapeCross');
+            if (stopBtn) { stopBtn.style.display = ''; stopBtn.disabled = false; }
+            if (stopCross) { stopCross.style.display = ''; stopCross.disabled = false; }
+            if (stopTxt) stopTxt.textContent = 'Stop scrape';
+
+            fetch('/api/fresh_scraping', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        showError('Failed to start fresh scraping: ' + data.message);
+                        systemRunning = false;
+                        hideProgress();
+                        if (stopBtn) stopBtn.style.display = 'none';
+                        if (stopCross) stopCross.style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    showError('Failed to start fresh scraping: ' + error);
+                    systemRunning = false;
+                    hideProgress();
+                    if (stopBtn) stopBtn.style.display = 'none';
+                    if (stopCross) stopCross.style.display = 'none';
+                });
+        }
+
+        function stopScrape() {
+            const btn = document.getElementById('stopScrapeButton');
+            const txt = document.getElementById('stopScrapeButtonText');
+            const cross = document.getElementById('stopScrapeCross');
+            if (btn) btn.disabled = true;
+            if (cross) { cross.disabled = true; cross.title = 'Stopping…'; }
+            if (txt) txt.textContent = 'Stopping…';
+
+            fetch('/api/stop_scraping', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        showError(data.message || 'Could not stop the scrape.');
+                        if (btn) btn.disabled = false;
+                        if (cross) { cross.disabled = false; cross.title = 'Stop the scrape'; }
+                        if (txt) txt.textContent = 'Stop scrape';
+                    }
+                    // On success we leave the controls disabled and let the
+                    // server's status_update / operation_complete reset the UI.
+                })
+                .catch(error => {
+                    showError('Failed to stop scrape: ' + error);
+                    if (btn) btn.disabled = false;
+                    if (cross) { cross.disabled = false; cross.title = 'Stop the scrape'; }
+                    if (txt) txt.textContent = 'Stop scrape';
+                });
+        }
+
+        function runSystem() {
+            if (systemRunning) return;
+            
+            systemRunning = true;
+            showProgress();
+            
+            fetch('/api/run_system', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        // The endpoint reports failure as `error`, not `message`.
+                        showError('Failed to start workflow: ' + (data.error || data.message || 'unknown error'));
+                        systemRunning = false;
+                        hideProgress();
+                    }
+                })
+                .catch(error => {
+                    showError('Error starting workflow: ' + error);
+                    systemRunning = false;
+                    hideProgress();
+                });
+        }
+
+        function showSchedule() {
+            // Switch to the Schedule tab, scroll it into view, and refresh data.
+            const tabBtn = document.getElementById('schedule-tab');
+            if (!tabBtn) return;
+            new bootstrap.Tab(tabBtn).show();
+            loadSchedule();
+            loadScheduleInfo();
+            // Smooth-scroll to the tab nav so the user sees the change
+            // (the tab content sits below the metric strip and control panel).
+            requestAnimationFrame(() => {
+                tabBtn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+
+        function loadScheduleInfo() {
+            const body = document.getElementById('scheduleInfoBody');
+            if (!body) return;
+            body.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading…';
+            fetch('/api/schedule-info')
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status !== 'success' || !j.info) {
+                        body.innerHTML = '<span class="text-muted">Could not load schedule info.</span>';
+                        return;
+                    }
+                    const i = j.info;
+                    const cap = s => s ? s[0].toUpperCase() + s.slice(1) : '';
+                    const socDaysHuman = (i.soc_delivery_days || []).map(cap).join(', ') || '—';
+                    const dot = (on) => on
+                        ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-right:4px;"></span>'
+                        : '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#94a3b8;margin-right:4px;"></span>';
+                    const nextRun = i.next_run_iso
+                        ? `${new Date(i.next_run_iso).toLocaleString()}<br><span style="color: var(--slate-400); font-size: 11px;">${escapeHtmlMaybe(i.next_run_name || '')}</span>`
+                        : '<span class="text-muted">none queued</span>';
+                    body.innerHTML = `
+                        <div><strong>Scraping</strong> · ${cap(i.scraping_day)} at ${escapeHtmlMaybe(i.scraping_time)}</div>
+                        <div><strong>SOC delivery</strong> · ${escapeHtmlMaybe(socDaysHuman)} at ${escapeHtmlMaybe(i.soc_delivery_time)}</div>
+                        <div style="border-top: 1px solid var(--slate-100); margin: 10px 0; padding-top: 10px;">
+                            ${dot(i.auto_scraping_enabled)}<strong>Auto scraping</strong>: ${i.auto_scraping_enabled ? 'Enabled' : 'Disabled'}<br>
+                            ${dot(i.auto_delivery_enabled)}<strong>Auto SOC delivery</strong>: ${i.auto_delivery_enabled ? 'Enabled' : 'Manual trigger only'}
+                        </div>
+                        <div style="border-top: 1px solid var(--slate-100); margin: 10px 0; padding-top: 10px;">
+                            <div><strong>Next run</strong></div>
+                            <div style="margin-top: 2px;">${nextRun}</div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 11px; color: var(--slate-400);">
+                            ${i.recurring_jobs} recurring · ${i.one_off_jobs} one-off
+                        </div>
+                    `;
+                })
+                .catch(() => {
+                    body.innerHTML = '<span class="text-muted">Could not load schedule info.</span>';
+                });
+        }
+
+        function escapeHtmlMaybe(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Theme toggle
+            const themeBtn = document.getElementById('theme-toggle');
+            if (themeBtn) {
+                themeBtn.addEventListener('click', () => {
+                    const isDark = document.documentElement.classList.toggle('dark');
+                    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) {}
+                });
+            }
+        });
+
+        function startTimer() {
+            if (timerInterval) return; // Already running
+            
+            operationStartTime = new Date();
+            document.getElementById('operationTimer').style.display = 'flex';
+            
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((new Date() - operationStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('timerDisplay').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            document.getElementById('operationTimer').style.display = 'none';
+        }
+
+        function showProgress() {
+            // The indeterminate sweep is driven entirely by CSS; we only
+            // toggle visibility so the animation starts fresh each time.
+            const progressEl = document.getElementById('operationProgress');
+            progressEl.style.display = 'block';
+            progressEl.setAttribute('aria-busy', 'true');
+        }
+
+        function hideProgress() {
+            const progressEl = document.getElementById('operationProgress');
+            progressEl.style.display = 'none';
+            progressEl.setAttribute('aria-busy', 'false');
+        }
+
+        function showOperationComplete(data) {
+            systemRunning = false;
+            hideProgress();
+            stopTimer();
+
+            // Hide and reset the Stop controls now that the operation has ended.
+            const stopBtn = document.getElementById('stopScrapeButton');
+            const stopTxt = document.getElementById('stopScrapeButtonText');
+            const stopCross = document.getElementById('stopScrapeCross');
+            if (stopBtn) { stopBtn.style.display = 'none'; stopBtn.disabled = false; }
+            if (stopCross) { stopCross.style.display = 'none'; stopCross.disabled = false; stopCross.title = 'Stop the scrape'; }
+            if (stopTxt) stopTxt.textContent = 'Stop scrape';
+
+
+            // Calculate elapsed time
+            const elapsedTime = operationStartTime ? 
+                Math.floor((new Date() - operationStartTime) / 1000) : 0;
+            const timeMsg = elapsedTime > 0 ? ` (completed in ${elapsedTime}s)` : '';
+            
+            if (data.success) {
+                const successMsg = data.articles_count ? 
+                    `${data.message} - ${data.articles_count} articles sent to manager${timeMsg}` :
+                    `${data.message}${timeMsg}`;
+                showSuccess(successMsg);
+            } else {
+                showError(`${data.message}${timeMsg}`);
+            }
+            
+            // Refresh data
+            setTimeout(() => {
+                loadNews();
+                loadSchedule();
+                loadReports();
+                loadAnalytics();
+            }, 1000);
+        }
+
+        // Data loading functions
+        function loadNews(filter = 'all') {
+            const tbody = document.getElementById('newsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+            
+            fetch(`/api/news?status=${filter}&limit=50`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.articles && Array.isArray(data.articles)) {
+                        displayNews(data.articles);
+                    } else if (Array.isArray(data)) {
+                        displayNews(data);
+                    } else {
+                        showError('Error loading news: ' + (data.error || 'Invalid data format'));
+                    }
+                })
+                .catch(error => {
+                    showError('Error loading news: ' + error);
+                });
+        }
+
+        function displayNews(articles) {
+            const tbody = document.getElementById('newsTableBody');
+            
+            if (articles.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No articles found. Use FRESH SCRAPING to get 1-10 articles.</td></tr>';
+                return;
+            }
+            
+            // Limit to 10 articles and add numbering 1-10
+            const limitedArticles = articles.slice(0, 10);
+            
+            tbody.innerHTML = limitedArticles.map((article, index) => {
+                const workflowStatus = getWorkflowStatus(article);
+                
+                return `
+                <tr>
+                    <td><strong>#${index + 1}</strong></td>
+                    <td>
+                        <a href="${article.url}" target="_blank" class="text-decoration-none">
+                            ${article.title.substring(0, 50)}${article.title.length > 50 ? '...' : ''}
+                        </a>
+                        <br><small class="text-muted">${article.summary ? article.summary.substring(0, 80) + '...' : 'No summary'}</small>
+                    </td>
+                    <td><span class="badge badge-cancelled">${article.source}</span></td>
+                    <td><span class="badge badge-scheduled">${article.relevance_score}</span></td>
+                    <td>${workflowStatus}</td>
+                    <td>${new Date(article.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewArticle(${article.id})" title="View Article #${index + 1}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+                `;
+            }).join('');
+            
+            updateStatusSummary(limitedArticles);
+        }
+        
+        function getWorkflowStatus(article) {
+            // Check workflow status based on article state (FIXED: Correct priority + rejected status)
+            if (article.soc_delivered) {
+                return '<span class="badge badge-sent">Sent to SOC</span>';
+            } else if (article.soc_scheduled) {
+                return '<span class="badge badge-scheduled">SOC Scheduled</span>';
+            } else if (article.sender_validated) {
+                return '<span class="badge badge-sender-approved">Sender Validated</span>';
+            } else if (article.manager_approved) {
+                return '<span class="badge badge-approved">Manager Approved</span>';
+            } else if (article.status === 'rejected') {
+                return '<span class="badge badge-rejected">Rejected</span>';
+            } else if (article.status === 'pending') {
+                return '<span class="badge badge-pending">Pending Manager Review</span>';
+            } else {
+                return '<span class="badge badge-cancelled">Unknown Status</span>';
+            }
+        }
+        
+        function updateStatusSummary(articles) {
+            let pending = 0, approved = 0, validated = 0, scheduled = 0;
+            
+            articles.forEach(article => {
+                if (article.status === 'pending') pending++;
+                if (article.manager_approved) approved++;
+                if (article.sender_validated) validated++;
+                if (article.soc_scheduled) scheduled++;
+            });
+            
+            // Update only elements that exist
+            const pendingEl = document.getElementById('pendingCount');
+            const scheduledEl = document.getElementById('scheduledCount');
+            
+            if (pendingEl) pendingEl.textContent = pending;
+            if (scheduledEl) scheduledEl.textContent = scheduled;
+        }
+
+        function loadSchedule() {
+            const tbody = document.getElementById('scheduleTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+            fetch('/api/schedule')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.schedule && Array.isArray(data.schedule)) {
+                        displaySchedule(data.schedule);
+                    } else if (Array.isArray(data)) {
+                        displaySchedule(data);
+                    } else {
+                        showError('Error loading schedule: ' + (data.error || 'Invalid data format'));
+                    }
+                })
+                .catch(error => {
+                    showError('Error loading schedule: ' + error);
+                });
+        }
+
+        function displaySchedule(items) {
+            const tbody = document.getElementById('scheduleTableBody');
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No scheduled deliveries</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(item => {
+                const isPending = item.status === 'pending';
+                const actions = isPending ? `
+                    <div class="d-inline-flex gap-2 flex-nowrap align-items-center">
+                        <button class="btn btn-sm btn-success" title="Send to the SOC team right now"
+                                onclick="sendDeliveryNow(${item.id}, this)">
+                            <i class="fas fa-bolt"></i> Send now
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" title="Schedule this delivery for a future date and time"
+                                onclick="rescheduleDelivery(${item.id}, this)">
+                            <i class="fas fa-clock"></i> Send later
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" title="Cancel this delivery"
+                                onclick="cancelDelivery(${item.id}, this)">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>` : `<span class="text-muted small">—</span>`;
+
+                // Audit-style "Delivery Date & Time" cell:
+                //   pending  → just the scheduled time + "N days from now"
+                //   sent     → original time struck through + "Sent <when>"
+                //   cancelled → original time struck through + "Cancelled"
+                //   failed   → original time struck through + "Send failed"
+                let dateCell;
+                const scheduled = `${escapeHtmlMaybe(item.delivery_datetime)}`;
+                const d = item.days_from_now;
+                let daysHint;
+                if (d < 0)        daysHint = 'Overdue — sending shortly';
+                else if (d === 0) daysHint = 'Today';
+                else if (d === 1) daysHint = 'Tomorrow';
+                else              daysHint = `in ${d} days`;
+
+                if (isPending) {
+                    // If earlier send attempts failed, show why so a stuck row
+                    // isn't a mystery (e.g. bad SMTP credentials).
+                    const retries = item.retry_count || 0;
+                    const warn = retries > 0
+                        ? `<br><small style="color:#b45309;">
+                             <i class="fas fa-exclamation-triangle"></i>
+                             Send failing (${retries} attempt${retries === 1 ? '' : 's'})${item.error_message ? ' — ' + escapeHtmlMaybe(item.error_message) : ''}
+                           </small>`
+                        : '';
+                    dateCell = `
+                        <strong>${scheduled}</strong><br>
+                        <small class="text-muted">${daysHint}</small>${warn}`;
+                } else {
+                    let footer;
+                    if (item.status === 'sent') {
+                        const sentAgo = item.sent_iso ? `<span class="text-muted">· ${relativeTime(item.sent_iso)}</span>` : '';
+                        footer = `<i class="fas fa-check-circle" style="color:#10b981;margin-right:4px;"></i>
+                                  <span style="color:#047857;font-weight:600;">Sent</span>
+                                  ${item.sent_datetime ? `<span> ${escapeHtmlMaybe(item.sent_datetime)}</span>` : ''}
+                                  ${sentAgo}`;
+                    } else if (item.status === 'cancelled') {
+                        footer = `<i class="fas fa-ban" style="color:var(--slate-400);margin-right:4px;"></i>
+                                  <span style="color:var(--slate-500);font-weight:600;">Cancelled</span>
+                                  ${item.sent_datetime ? `<span class="text-muted"> · ${escapeHtmlMaybe(item.sent_datetime)}</span>` : ''}`;
+                    } else if (item.status === 'failed') {
+                        footer = `<i class="fas fa-exclamation-circle" style="color:#b91c1c;margin-right:4px;"></i>
+                                  <span style="color:#b91c1c;font-weight:600;">Send failed</span>
+                                  ${item.error_message ? `<span class="text-muted"> — ${escapeHtmlMaybe(item.error_message)}</span>` : ''}`;
+                    } else {
+                        footer = `<small class="text-muted">${escapeHtmlMaybe(item.status)}</small>`;
+                    }
+                    dateCell = `
+                        <span style="text-decoration: line-through; color: var(--slate-400);">${scheduled}</span><br>
+                        <span style="display:inline-block;margin-top:2px;font-size:12.5px;">${footer}</span>`;
+                }
+
+                return `
+                    <tr data-delivery-id="${item.id}">
+                        <td><span class="badge badge-cancelled">#${item.position}</span></td>
+                        <td>${escapeHtmlMaybe(item.title)}</td>
+                        <td>${dateCell}</td>
+                        <td><span class="badge badge-${item.status}">${item.status.toUpperCase()}</span></td>
+                        <td class="text-end">${actions}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // Returns a short human-readable relative time like "2h ago" or "in 3 days"
+        function relativeTime(iso) {
+            if (!iso) return '';
+            const t = new Date(iso).getTime();
+            if (!t) return '';
+            const diff = (t - Date.now()) / 1000;          // seconds in the future (positive) / past (negative)
+            const past = diff < 0;
+            const s = Math.abs(diff);
+            let n, unit;
+            if      (s < 60)            { n = Math.round(s);        unit = 's'; }
+            else if (s < 3600)          { n = Math.round(s / 60);   unit = 'm'; }
+            else if (s < 86400)         { n = Math.round(s / 3600); unit = 'h'; }
+            else if (s < 86400 * 30)    { n = Math.round(s / 86400);unit = 'd'; }
+            else                        { n = Math.round(s / 86400 / 30); unit = 'mo'; }
+            return past ? `${n}${unit} ago` : `in ${n}${unit}`;
+        }
+
+        // ── Per-row actions on the Delivery Schedule table ────────
+        async function sendDeliveryNow(deliveryId, btn) {
+            const ok = await showConfirm(
+                'This will send the article to the SOC team right now and remove the scheduled auto-delivery so it is not sent again later.',
+                { title: 'Send delivery now?', confirmLabel: 'Send now' }
+            );
+            if (!ok) return;
+            const row = btn.closest('tr');
+            row.style.opacity = '0.55';
+            fetch(`/api/delivery/${deliveryId}/send-now`, { method: 'POST' })
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status === 'success') {
+                        showToast(j.message || 'Sent.', { kind: 'success' });
+                    } else {
+                        showToast(j.message || 'Send failed', { kind: 'error', title: 'Send failed' });
+                        row.style.opacity = '1';
+                    }
+                    loadSchedule();
+                })
+                .catch(err => {
+                    showToast('Request failed: ' + err, { kind: 'error' });
+                    row.style.opacity = '1';
+                });
+        }
+
+        async function rescheduleDelivery(deliveryId, btn) {
+            const pad = n => String(n).padStart(2, '0');
+            const now = new Date();
+            const minLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            const value = await showConfirm(
+                'Move this delivery to a new date and time.',
+                {
+                    title: 'Schedule send for later',
+                    confirmLabel: 'Schedule',
+                    icon: 'fa-clock',
+                    goIcon: 'fa-clock',
+                    input: {
+                        type: 'datetime-local',
+                        min: minLocal,
+                        help: 'Pick any future date and time (your local timezone).',
+                        validate: v => {
+                            if (!v) return 'Pick a date and time first.';
+                            if (new Date(v) <= new Date()) return 'The time must be in the future.';
+                            return '';
+                        },
+                    },
+                }
+            );
+            if (value === undefined) return;
+            const row = btn.closest('tr');
+            row.style.opacity = '0.55';
+            fetch(`/api/delivery/${deliveryId}/reschedule`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ when: value }),
+            })
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status === 'success') {
+                        showToast(j.message || 'Delivery rescheduled.', { kind: 'success' });
+                    } else {
+                        showToast(j.message || 'Reschedule failed', { kind: 'error', title: 'Reschedule failed' });
+                    }
+                    row.style.opacity = '1';
+                    loadSchedule();
+                    if (typeof loadScheduleInfo === 'function') loadScheduleInfo();
+                })
+                .catch(err => {
+                    showToast('Request failed: ' + err, { kind: 'error' });
+                    row.style.opacity = '1';
+                });
+        }
+
+        async function cancelDelivery(deliveryId, btn) {
+            const ok = await showConfirm(
+                'The article will not be sent to the SOC team. The history row will show as CANCELLED.',
+                { title: 'Cancel this scheduled delivery?', danger: true, confirmLabel: 'Cancel delivery', cancelLabel: 'Keep it' }
+            );
+            if (!ok) return;
+            const row = btn.closest('tr');
+            row.style.opacity = '0.55';
+            fetch(`/api/delivery/${deliveryId}/cancel`, { method: 'POST' })
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status === 'success') {
+                        showToast('Delivery cancelled.', { kind: 'success' });
+                    } else {
+                        showToast(j.message || 'Cancel failed', { kind: 'error', title: 'Cancel failed' });
+                        row.style.opacity = '1';
+                    }
+                    loadSchedule();
+                })
+                .catch(err => {
+                    showToast('Request failed: ' + err, { kind: 'error' });
+                    row.style.opacity = '1';
+                });
+        }
+
+        function loadReports() {
+            const tbody = document.getElementById('reportsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+            
+            fetch('/api/reports')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.reports && Array.isArray(data.reports)) {
+                        displayReports(data.reports);
+                    } else if (Array.isArray(data)) {
+                        displayReports(data);
+                    } else {
+                        showError('Error loading reports: ' + (data.error || 'Invalid data format'));
+                    }
+                })
+                .catch(error => {
+                    showError('Error loading reports: ' + error);
+                });
+        }
+
+        function displayReports(reports) {
+            const tbody = document.getElementById('reportsTableBody');
+            
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No reports generated yet</td></tr>';
+                // Update only elements that exist
+                const readyEl = document.getElementById('reportsReady');
+                const awaitingEl = document.getElementById('awaitingSender');
+                const deliveredEl = document.getElementById('delivered');
+                
+                if (readyEl) readyEl.textContent = '0';
+                if (awaitingEl) awaitingEl.textContent = '0';
+                if (deliveredEl) deliveredEl.textContent = '0';
+                return;
+            }
+            
+            // Count statuses
+            let ready = 0, awaiting = 0, delivered = 0;
+            
+            tbody.innerHTML = reports.map(report => {
+                // Update counters
+                if (report.status_class === 'ready') ready++;
+                else if (report.status_class === 'awaiting-sender') awaiting++;
+                else if (report.status_class === 'delivered') delivered++;
+                
+                // Format dates
+                const approvedDate = new Date(report.approved_date).toLocaleDateString();
+                const validationDate = report.validation_date ? 
+                    new Date(report.validation_date).toLocaleDateString() : '-';
+                const deliveryDate = report.delivery_date ? 
+                    new Date(report.delivery_date).toLocaleDateString() : '-';
+                
+                // Status badges
+                const statusBadge = `<span class="badge badge-${report.status_class}">${report.report_status}</span>`;
+                const senderBadge = report.sender_validated ? 
+                    '<span class="badge badge-approved">Validated</span>' : 
+                    '<span class="badge badge-pending">Pending</span>';
+                const socBadge = report.soc_status === 'sent' ? 
+                    '<span class="badge badge-delivered">Sent</span>' : 
+                    (report.soc_status === 'pending' ? 
+                        '<span class="badge badge-scheduled">Scheduled</span>' : 
+                        '<span class="badge badge-pending">-</span>');
+                
+                return `
+                    <tr>
+                        <td>${report.title}</td>
+                        <td>${report.source}</td>
+                        <td>${approvedDate}</td>
+                        <td>${statusBadge}</td>
+                        <td>${senderBadge}<br><small class="text-muted">${validationDate}</small></td>
+                        <td>${socBadge}<br><small class="text-muted">${deliveryDate}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewReport(${report.id})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Update counters (only if elements exist)
+            const readyEl = document.getElementById('reportsReady');
+            const awaitingEl = document.getElementById('awaitingSender');
+            const deliveredEl = document.getElementById('delivered');
+            
+            if (readyEl) readyEl.textContent = ready;
+            if (awaitingEl) awaitingEl.textContent = awaiting;
+            if (deliveredEl) deliveredEl.textContent = delivered;
+        }
+
+        function loadAnalytics() {
+            fetch('/api/analytics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError('Error loading analytics: ' + data.error);
+                        return;
+                    }
+                    displayAnalytics(data);
+                })
+                .catch(error => {
+                    showError('Error loading analytics: ' + error);
+                });
+        }
+
+        function displayAnalytics(data) {
+            // Update approval rate
+            document.getElementById('approvalRate').textContent = data.approval_rates.approval_rate + '%';
+            
+            // Display source stats
+            const sourceStats = document.getElementById('sourceStats');
+            sourceStats.innerHTML = data.sources.map(source => `
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <strong>${source.source}</strong><br>
+                        <small class="text-muted">Avg Score: ${source.avg_score}</small>
+                    </div>
+                    <span class="badge bg-primary">${source.count}</span>
+                </div>
+            `).join('');
+        }
+
+        async function deleteScrapingSession(sessionId, btn) {
+            const ok = await showConfirm(
+                'This only deletes the history entry. Articles saved during the scrape are kept.',
+                { title: `Remove session #${sessionId} from history?`, danger: true, confirmLabel: 'Delete row' }
+            );
+            if (!ok) return;
+            const row = btn.closest('tr');
+            row.style.opacity = '0.45';
+            btn.disabled = true;
+            fetch(`/api/scraping-session/${sessionId}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status === 'success') {
+                        row.style.transition = 'opacity .2s';
+                        row.style.opacity = '0';
+                        setTimeout(() => row.remove(), 200);
+                        showToast(`Session #${sessionId} removed.`, { kind: 'success' });
+                    } else {
+                        showToast(j.message || 'Delete failed', { kind: 'error', title: 'Delete failed' });
+                        row.style.opacity = '1';
+                        btn.disabled = false;
+                    }
+                })
+                .catch(err => {
+                    showError('Request failed: ' + err);
+                    row.style.opacity = '1';
+                    btn.disabled = false;
+                });
+        }
+
+        // Filter functions
+        function filterNews(status) {
+            currentFilter = status;
+            loadNews(status);
+            
+            // Update button states
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Utility functions
+        function refreshStatus() {
+            location.reload();
+        }
+
+        function viewLogs() {
+            // Activity Log tab was removed; this stub is left so legacy callers don't error.
+        }
+
+        function checkSchedule() {
+            showSchedule();
+        }
+
+        function viewArticle(articleId) {
+            // Article detail modal isn't built yet — surface that politely.
+            showToast(`Detail view for article #${articleId} is not implemented yet.`, {
+                kind: 'info', title: 'Coming soon'
+            });
+        }
+
+        function viewReport(reportId) {
+            showToast(`Detail view for report #${reportId} is not implemented yet.`, {
+                kind: 'info', title: 'Coming soon'
+            });
+        }
+
+        // ─── Toast + confirm system (replaces alert / confirm / 3 old helpers) ───
+        // Usage:
+        //   showToast('Saved', { kind: 'success' })
+        //   showToast('Auth failed', { kind: 'error', title: 'Send failed' })
+        //   await showConfirm('Delete this row?', { danger: true })
+        //   await showConfirm('Type OK to proceed', { input: { pattern: 'OK', placeholder: 'OK' } })
+
+        const TOAST_ICONS = { success: '✓', error: '!', warning: '!', info: 'i' };
+
+        function showToast(message, opts = {}) {
+            const stack = document.getElementById('toast-stack');
+            if (!stack) return;
+            const kind = opts.kind || 'info';
+            const title = opts.title || '';
+            const duration = opts.duration ?? (kind === 'error' ? 7000 : 4500);
+
+            const el = document.createElement('div');
+            el.className = 'toast-card ' + kind;
+            el.innerHTML = `
+                <span class="toast-icon" aria-hidden="true">${TOAST_ICONS[kind] || 'i'}</span>
+                <div class="toast-body">
+                    ${title ? `<div class="toast-title">${escapeHtmlForToast(title)}</div>` : ''}
+                    <div class="toast-msg">${escapeHtmlForToast(message)}</div>
+                </div>
+                <button type="button" class="toast-close" aria-label="Dismiss">×</button>
+            `;
+            stack.appendChild(el);
+            // animate in next frame
+            requestAnimationFrame(() => el.classList.add('in'));
+
+            const dismiss = () => {
+                if (!el.parentNode) return;
+                el.classList.remove('in');
+                el.classList.add('out');
+                setTimeout(() => el.remove(), 250);
+            };
+            el.querySelector('.toast-close').addEventListener('click', dismiss);
+            if (duration > 0) setTimeout(dismiss, duration);
+        }
+
+        function escapeHtmlForToast(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Promise-based custom confirm dialog. Returns the user's input (or true)
+        // when confirmed, undefined when cancelled.
+        function showConfirm(message, opts = {}) {
+            return new Promise((resolve) => {
+                const backdrop  = document.getElementById('confirm-backdrop');
+                const dialog    = document.getElementById('confirm-dialog');
+                const titleEl   = document.getElementById('confirm-title');
+                const messageEl = document.getElementById('confirm-message');
+                const inputEl   = document.getElementById('confirm-input');
+                const iconEl    = document.getElementById('confirm-icon');
+                const cancelBtn = document.getElementById('confirm-cancel');
+                const goBtn     = document.getElementById('confirm-go');
+
+                titleEl.textContent   = opts.title || 'Are you sure?';
+                messageEl.textContent = message || '';
+                dialog.classList.toggle('danger', !!opts.danger);
+
+                // Icon: explicit opts.icon wins; otherwise pick a sensible default
+                // based on danger flag or the confirm label.
+                const labelHint = (opts.confirmLabel || '').toLowerCase();
+                let headIcon = opts.icon;
+                let goIcon   = opts.goIcon;
+                if (!headIcon) {
+                    if (opts.danger)                       headIcon = 'fa-triangle-exclamation';
+                    else if (labelHint.includes('send'))   headIcon = 'fa-paper-plane';
+                    else if (labelHint.includes('delete')) headIcon = 'fa-trash-can';
+                    else                                   headIcon = 'fa-circle-question';
+                }
+                if (!goIcon) {
+                    if (opts.danger)                       goIcon = 'fa-trash-can';
+                    else if (labelHint.includes('send'))   goIcon = 'fa-bolt';
+                    else                                   goIcon = 'fa-check';
+                }
+                iconEl.innerHTML = `<i class="fas ${headIcon}"></i>`;
+                const goIconEl = document.getElementById('confirm-go-icon');
+                if (goIconEl) goIconEl.className = `fas ${goIcon}`;
+
+                document.getElementById('confirm-cancel-label').textContent = opts.cancelLabel || 'Cancel';
+                document.getElementById('confirm-go-label').textContent     = opts.confirmLabel || (opts.danger ? 'Delete' : 'Confirm');
+
+                const hintEl = document.getElementById('confirm-hint');
+                const setHint = (text, isError) => {
+                    if (!hintEl) return;
+                    hintEl.textContent = text || '';
+                    hintEl.classList.toggle('error', !!isError);
+                    hintEl.style.display = text ? '' : 'none';
+                };
+                if (opts.input) {
+                    inputEl.style.display = '';
+                    inputEl.type = opts.input.type || 'text';
+                    inputEl.value = opts.input.value || '';
+                    inputEl.placeholder = opts.input.placeholder || '';
+                    if (opts.input.min) inputEl.min = opts.input.min; else inputEl.removeAttribute('min');
+                    inputEl.style.borderColor = '';
+                    setHint(opts.input.help, false);
+                    inputEl.oninput = () => {
+                        inputEl.style.borderColor = '';
+                        setHint(opts.input.help, false);
+                    };
+                    setTimeout(() => inputEl.focus(), 30);
+                } else {
+                    inputEl.style.display = 'none';
+                    setHint('', false);
+                }
+
+                const cleanup = () => {
+                    backdrop.classList.remove('in');
+                    setTimeout(() => { backdrop.style.display = 'none'; }, 200);
+                    cancelBtn.onclick = goBtn.onclick = backdrop.onclick = inputEl.oninput = null;
+                    document.removeEventListener('keydown', onKey);
+                };
+                const onCancel = () => { cleanup(); resolve(undefined); };
+                const onGo = () => {
+                    if (opts.input) {
+                        const v = inputEl.value;
+                        if (opts.input.pattern && v !== opts.input.pattern) {
+                            inputEl.style.borderColor = '#e11d48';
+                            inputEl.focus();
+                            return;
+                        }
+                        if (opts.input.validate) {
+                            const err = opts.input.validate(v);
+                            if (err) {
+                                inputEl.style.borderColor = '#e11d48';
+                                setHint(err, true);
+                                inputEl.focus();
+                                return;
+                            }
+                        }
+                        cleanup(); resolve(v);
+                    } else {
+                        cleanup(); resolve(true);
+                    }
+                };
+                const onKey = (e) => {
+                    if (e.key === 'Escape') onCancel();
+                    else if (e.key === 'Enter' && !opts.input) onGo();
+                };
+                cancelBtn.onclick = onCancel;
+                goBtn.onclick = onGo;
+                backdrop.onclick = (e) => { if (e.target === backdrop) onCancel(); };
+                document.addEventListener('keydown', onKey);
+
+                backdrop.style.display = 'flex';
+                requestAnimationFrame(() => backdrop.classList.add('in'));
+                setTimeout(() => goBtn.focus(), 50);
+            });
+        }
+
+        // Back-compat aliases so existing call sites keep working
+        function showSuccess(message) { showToast(message, { kind: 'success' }); }
+        function showError(message)   { showToast(message, { kind: 'error' }); }
+        function showNotification(title, message, type = 'info') {
+            // Old signature: (title, message, type). Map 'error' to 'error', etc.
+            const kind = (type === 'success' || type === 'warning' || type === 'error') ? type : 'info';
+            showToast(message, { kind, title });
+        }
+
+        // ─── Sidebar user profile ────────────────────────────────────
+        let currentUser = null;
+
+        function setAvatar(imgEl, initialEl, user) {
+            if (user && user.picture) {
+                imgEl.src = user.picture;
+                imgEl.style.display = '';
+                initialEl.style.display = 'none';
+            } else {
+                const ch = ((user && (user.email || user.name)) || '?').trim()[0] || '?';
+                initialEl.textContent = ch.toUpperCase();
+                imgEl.style.display = 'none';
+                initialEl.style.display = '';
+            }
+        }
+
+        async function loadCurrentUser() {
+            try {
+                const r = await fetch('/api/auth/me');
+                if (!r.ok) return;
+                const j = await r.json();
+                if (!j.authenticated) return;
+                currentUser = j.user || {};
+                document.getElementById('sb-user-name').textContent =
+                    currentUser.name || (currentUser.email ? currentUser.email.split('@')[0] : 'Signed in');
+                document.getElementById('sb-user-email').textContent =
+                    currentUser.email || '—';
+                setAvatar(
+                    document.getElementById('sb-avatar'),
+                    document.getElementById('sb-avatar-initial'),
+                    currentUser
+                );
+                document.getElementById('sb-user').style.display = '';
+                // Users & Access is admin-only — reveal it and surface how many
+                // people are waiting for access, so requests aren't missed.
+                if (j.is_admin) {
+                    document.getElementById('sb-users-link').style.display = '';
+                    loadPendingAccessCount();
+                }
+            } catch (e) { /* leave hidden */ }
+        }
+
+        async function loadPendingAccessCount() {
+            try {
+                const r = await fetch('/api/admin/access-requests');
+                if (!r.ok) return;
+                const j = await r.json();
+                const badge = document.getElementById('sb-pending-badge');
+                const n = j.pending_count || 0;
+                badge.textContent = n;
+                badge.classList.toggle('show', n > 0);
+            } catch (e) { /* badge stays hidden */ }
+        }
+
+        async function handleLogout() {
+            try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+            // Also clear Firebase client-side session so the next visit doesn't auto-restore
+            try {
+                if (window.firebase && firebase.auth) { await firebase.auth().signOut(); }
+            } catch (e) {}
+            window.location.href = '/login';
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Dashboard initialized');
+            loadCurrentUser();
+
+            // Sidebar action buttons
+            const sbLogout = document.getElementById('sb-logout');
+            if (sbLogout) sbLogout.addEventListener('click', handleLogout);
+            const sbRefresh = document.getElementById('sb-refresh');
+            if (sbRefresh) sbRefresh.addEventListener('click', () => {
+                if (typeof refreshProject === 'function') refreshProject();
+            });
+
+            // Honor ?refresh=1 hint so the sidebar's Refresh Project link works
+            // from /admin (which can't call the JS function directly).
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('refresh') === '1') {
+                    history.replaceState({}, '', window.location.pathname); // clean URL
+                    setTimeout(() => { if (typeof refreshProject === 'function') refreshProject(); }, 400);
+                }
+            } catch (e) {}
+
+            // Load initial data
+            loadNews();
+            loadSchedule();
+            loadReports();
+            loadAnalytics();
+            loadScrapingHistory();
+            
+            // Set up periodic refresh
+            setInterval(() => {
+                if (!systemRunning) {
+                    loadNews(currentFilter);
+                    loadSchedule();
+                    loadReports();
+                }
+            }, 30000); // Refresh every 30 seconds
+            
+            // Load scraping history when tab is shown
+            document.getElementById('scraping-history-tab').addEventListener('shown.bs.tab', function() {
+                loadScrapingHistory();
+            });
+
+            // Refresh the Schedule tab whenever it's shown (nav click OR
+            // the "Schedule view" button in the control panel).
+            const scheduleTabBtn = document.getElementById('schedule-tab');
+            if (scheduleTabBtn) {
+                scheduleTabBtn.addEventListener('shown.bs.tab', function() {
+                    loadSchedule();
+                    loadScheduleInfo();
+                });
+            }
+        });
+
+        // ─── Refresh-everything (front-page reset) ─────────────────
+        async function refreshProject() {
+            if (systemRunning) {
+                showToast('A workflow is currently running — wait for it to finish before refreshing the project.', { kind: 'warning' });
+                return;
+            }
+            const typed = await showConfirm(
+                'This will permanently delete every scraped article, manager approval, SOC delivery row, sender validation, and scraping-session entry, and cancel any pending one-off deliveries.\n\nSystem logs and your admin settings are kept.\n\nType OK below to confirm.',
+                { title: 'Refresh project (start fresh)', danger: true,
+                  confirmLabel: 'Refresh',
+                  input: { pattern: 'OK', placeholder: 'Type OK' } }
+            );
+            if (typed !== 'OK') return;
+
+            // Use whatever Refresh button is on the page (now the sidebar one).
+            const btn = document.getElementById('sb-refresh') || document.getElementById('btn-refresh-project');
+            const orig = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                const r = await fetch('/api/admin/refresh-everything', { method: 'POST' });
+                const j = await r.json();
+                if (j.status === 'success') {
+                    showToast(j.message || 'Project refreshed.', { kind: 'success', title: 'Refresh complete' });
+                    // Re-pull every data section so the UI reflects the empty state
+                    if (typeof loadNews === 'function')       loadNews();
+                    if (typeof loadSchedule === 'function')   loadSchedule();
+                    if (typeof loadReports === 'function')    loadReports();
+                    if (typeof loadAnalytics === 'function')  loadAnalytics();
+                    if (typeof loadScrapingHistory === 'function') loadScrapingHistory();
+                    // Reset visible metric counters
+                    const pc = document.getElementById('pendingCount'); if (pc) pc.textContent = '0';
+                    const sc = document.getElementById('scheduledCount'); if (sc) sc.textContent = '0';
+                } else {
+                    showToast(j.message || 'Refresh failed', { kind: 'error', title: 'Refresh failed' });
+                }
+            } catch (e) {
+                showToast('Network or server error: ' + e, { kind: 'error', title: 'Refresh failed' });
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            }
+        }
+
+        // ─── Activity Log loader ──────────────────────────────────
+        function loadActivity() {
+            const feed = document.getElementById('activityFeed');
+            if (!feed) return;
+            feed.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-spinner fa-spin"></i> Loading activity…</div>';
+
+            fetch('/api/activity?limit=150')
+                .then(r => r.json())
+                .then(j => {
+                    if (j.status !== 'success') {
+                        feed.innerHTML = `<div class="text-center text-muted p-4">Could not load: ${escapeHtmlMaybe(j.message || 'unknown error')}</div>`;
+                        return;
+                    }
+                    if (!j.events || j.events.length === 0) {
+                        feed.innerHTML = '<div class="text-center text-muted p-4">No activity recorded yet.</div>';
+                        return;
+                    }
+                    const styleFor = (level) => {
+                        const lv = String(level || '').toUpperCase();
+                        if (lv === 'ERROR')   return { bg: '#fee2e2', fg: '#b91c1c', icon: '!' };
+                        if (lv === 'WARNING') return { bg: '#fef3c7', fg: '#92400e', icon: '!' };
+                        if (lv === 'INFO')    return { bg: 'var(--brand-tint)', fg: 'var(--brand-dark)', icon: 'i' };
+                        return { bg: 'var(--slate-100)', fg: 'var(--slate-600)', icon: '·' };
+                    };
+                    feed.innerHTML = j.events.map(ev => {
+                        const s = styleFor(ev.level);
+                        const ts = ev.timestamp ? new Date(ev.timestamp).toLocaleString() : '';
+                        const comp = ev.component ? ` <span style="color:var(--slate-400);font-size:11px;">· ${escapeHtmlMaybe(ev.component)}</span>` : '';
+                        return `
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background:${s.bg};color:${s.fg};">${s.icon}</div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-size:13px;color:var(--brand-dark);word-break:break-word;">${escapeHtmlMaybe(ev.message)}</div>
+                                    <div style="font-size:11.5px;color:var(--slate-400);margin-top:2px;">
+                                        <span style="text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">${escapeHtmlMaybe(ev.level || '')}</span>
+                                        ${comp}
+                                        <span style="margin-left:8px;">${escapeHtmlMaybe(ts)}</span>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }).join('');
+                })
+                .catch(err => {
+                    feed.innerHTML = `<div class="text-center text-muted p-4">Network error: ${escapeHtmlMaybe(String(err))}</div>`;
+                });
+        }
+
+        // Scraping History Functions
+        function loadScrapingHistory() {
+            const tbody = document.getElementById('scraping-history-table');
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading scraping history...</td></tr>';
+            
+            fetch('/api/scraping-history?limit=20')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        displayScrapingHistory(data.history);
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading scraping history</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading scraping history:', error);
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error loading scraping history</td></tr>';
+                });
+        }
+
+        function displayScrapingHistory(history) {
+            const tbody = document.getElementById('scraping-history-table');
+            
+            if (history.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No scraping sessions found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = history.map(session => {
+                const statusBadge = getStatusBadge(session.status);
+                const typeBadge = getTypeBadge(session.session_type);
+                const sourcesText = session.sources_scraped ? session.sources_scraped.join(', ') : 'N/A';
+
+                return `
+                    <tr data-session-id="${session.id}">
+                        <td><strong>#${session.id}</strong></td>
+                        <td>${session.session_date}</td>
+                        <td>${typeBadge}</td>
+                        <td><small>${sourcesText}</small></td>
+                        <td><span class="badge bg-info">${session.total_articles_found}</span></td>
+                        <td><span class="badge bg-success">${session.total_articles_saved}</span></td>
+                        <td>${statusBadge}</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="showSessionDetails(${session.id})" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-row-delete" title="Remove this row from history"
+                                    onclick="deleteScrapingSession(${session.id}, this)" aria-label="Delete session ${session.id}">×</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            const statusMap = {
+                'completed': '<span class="badge bg-success">Completed</span>',
+                'completed_with_errors': '<span class="badge bg-warning">Completed with Errors</span>',
+                'failed': '<span class="badge bg-danger">Failed</span>',
+                'running': '<span class="badge bg-primary">Running</span>'
+            };
+            return statusMap[status] || '<span class="badge bg-secondary">Unknown</span>';
+        }
+
+        function getTypeBadge(type) {
+            const typeMap = {
+                'manual': '<span class="badge bg-primary">Manual</span>',
+                'fresh': '<span class="badge bg-success">Fresh</span>',
+                'scheduled': '<span class="badge bg-info">Scheduled</span>'
+            };
+            return typeMap[type] || '<span class="badge bg-secondary">Unknown</span>';
+        }
+
+        function showSessionDetails(sessionId) {
+            const modal = new bootstrap.Modal(document.getElementById('sessionDetailsModal'));
+            const content = document.getElementById('session-details-content');
+            
+            content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading session details...</div>';
+            modal.show();
+            
+            fetch(`/api/scraping-session/${sessionId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        displaySessionDetails(data.session);
+                    } else {
+                        content.innerHTML = '<div class="alert alert-danger">Error loading session details</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading session details:', error);
+                    content.innerHTML = '<div class="alert alert-danger">Error loading session details</div>';
+                });
+        }
+
+        function displaySessionDetails(session) {
+            const content = document.getElementById('session-details-content');
+            
+            const articlesHtml = session.articles.map(article => `
+                <div class="card mb-2">
+                    <div class="card-body p-3">
+                        <h6 class="card-title">${article.title}</h6>
+                        <p class="card-text text-muted small">${article.summary || 'No summary available'}</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small><strong>Source:</strong> ${article.source}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <small><strong>Status:</strong> ${getStatusBadge(article.status)}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            content.innerHTML = `
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Session ID:</strong> #${session.id}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Date:</strong> ${session.session_date}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Type:</strong> ${getTypeBadge(session.session_type)}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Status:</strong> ${getStatusBadge(session.status)}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Articles Found:</strong> ${session.total_articles_found}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Articles Saved:</strong> ${session.total_articles_saved}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <strong>Sources Scraped:</strong> ${session.sources_scraped.join(', ')}
+                </div>
+                ${session.error_log ? `<div class="alert alert-warning"><strong>Errors:</strong> ${session.error_log}</div>` : ''}
+                <div class="mt-3">
+                    <h6>Articles Scraped in This Session (${session.articles.length}):</h6>
+                    <div class="max-height-400 overflow-auto">
+                        ${articlesHtml || '<p class="text-muted">No articles found for this session.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function refreshScrapingHistory() {
+            loadScrapingHistory();
+        }
+
+        // Trigger all pending SOC deliveries immediately. Used by the
+        // "Trigger All Deliveries" button in the Scheduling tab header.
+        async function triggerAllDeliveries() {
+            const ok = await showConfirm(
+                'All pending SOC deliveries will be sent right now and removed from the queue.',
+                { title: 'Trigger all pending deliveries?', confirmLabel: 'Send all now' }
+            );
+            if (!ok) return;
+            try {
+                const r = await fetch('/api/trigger-delivery', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await r.json();
+                if (data.status === 'success') {
+                    showToast('All deliveries triggered successfully.', { kind: 'success' });
+                    if (typeof loadSchedule === 'function')        loadSchedule();
+                } else {
+                    showToast(data.message || 'Unknown error', { kind: 'error', title: 'Could not trigger deliveries' });
+                }
+            } catch (e) {
+                console.error('Error triggering deliveries:', e);
+                showToast('Network or server error.', { kind: 'error', title: 'Could not trigger deliveries' });
+            }
+        }
+
+
+        // New workflow action functions
+        function checkApprovalStatus() {
+            showNotification('Checking Status', 'Refreshing approval status...', 'info');
+            loadNews();
+            loadSchedule();
+        }
+        
+        function viewWorkflowProgress() {
+            // Switch to the main tab to show workflow progress
+            const mainTab = new bootstrap.Tab(document.getElementById('main-tab'));
+            mainTab.show();
+            showNotification('Workflow Progress', 'View the main dashboard for complete workflow status', 'info');
+        }
+        
+        async function sendToManager() {
+            const ok = await showConfirm(
+                'The current articles numbered 1–10 will be emailed to the manager for approval.',
+                { title: 'Send to manager?', confirmLabel: 'Send now' }
+            );
+            if (!ok) return;
+            {
+                showNotification('Sending to Manager', 'Preparing to send articles numbered 1–10…', 'info');
+                
+                fetch('/api/send_to_manager', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Success', `Sent ${data.count || 'articles'} to manager for approval`, 'success');
+                        loadNews();
+                    } else {
+                        showNotification('Error', data.message || 'Failed to send to manager', 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error', 'Network error: ' + error.message, 'error');
+                });
+            }
+        }
+    </script>
+
+    <!-- Left collapsing sidebar (hover to expand) -->
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+        <a class="sb-logo" href="/" title="Weekly Cyber Watch">
+            <img src="{{ brand.icon }}" alt="{{ brand.name }}">
+            <span class="sb-logo-text">Cyber Watch</span>
+        </a>
+        <nav class="sb-links">
+            <a class="sb-link active" href="/" title="Dashboard">
+                <span class="sb-ico"><i class="fas fa-house"></i></span>
+                <span class="sb-label">Dashboard</span>
+            </a>
+            <a class="sb-link" href="/admin" title="Admin Settings">
+                <span class="sb-ico"><i class="fas fa-user-shield"></i></span>
+                <span class="sb-label">Admin</span>
+            </a>
+            <!-- Admin-only; revealed by loadCurrentUser() once /api/auth/me confirms the role -->
+            <a class="sb-link" href="/admin/users" id="sb-users-link" title="Users &amp; Access" style="display:none;">
+                <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
+                <span class="sb-label">Users &amp; Access</span>
+                <span class="sb-badge" id="sb-pending-badge"></span>
+            </a>
+            <button type="button" class="sb-link" id="sb-refresh" title="Refresh project (wipe articles &amp; workflow state)">
+                <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
+                <span class="sb-label">Refresh Project</span>
+            </button>
+            <!-- Your own details, role and password — see templates/settings.html -->
+            <a class="sb-link" href="/settings" title="My account &amp; password">
+                <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
+                <span class="sb-label">My Account</span>
+            </a>
+        </nav>
+        <div class="sb-foot">
+            <a class="sb-user" id="sb-user" href="/settings" title="My account" style="display:none;">
+                <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
+                <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
+                <div class="sb-user-meta">
+                    <div class="name" id="sb-user-name">Signed in</div>
+                    <div class="email" id="sb-user-email">—</div>
+                </div>
+            </a>
+            <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
+                <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
+                <span class="sb-label">Sign out</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Toast stack + custom confirm modal (rendered once, reused by JS) -->
+    <div id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+    <div id="confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+        <div class="confirm-dialog" id="confirm-dialog">
+            <div class="confirm-head">
+                <span class="confirm-icon" id="confirm-icon" aria-hidden="true"><i class="fas fa-circle-question"></i></span>
+                <h3 id="confirm-title">Are you sure?</h3>
+            </div>
+            <div class="confirm-body">
+                <div id="confirm-message"></div>
+                <input type="text" class="confirm-input" id="confirm-input" style="display:none;" autocomplete="off">
+                <div class="confirm-hint" id="confirm-hint" style="display:none;"></div>
+            </div>
+            <div class="confirm-actions">
+                <button type="button" class="cancel" id="confirm-cancel"><i class="fas fa-xmark"></i><span id="confirm-cancel-label">Cancel</span></button>
+                <button type="button" class="go" id="confirm-go"><i class="fas fa-check" id="confirm-go-icon"></i><span id="confirm-go-label">Confirm</span></button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

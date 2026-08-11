@@ -1,0 +1,77 @@
+# Dashboard + scheduler. Install to /etc/systemd/system/
+#
+#   sudo cp deploy/threatintel-dashboard.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now threatintel-dashboard
+#
+# The scheduler is NOT a separate service: scheduler.py creates its singleton at
+# import time and web_dashboard.py imports it, so the weekly scrape, the SOC
+# delivery poller and the retention sweep all live inside this process. Running
+# a second copy would double every scheduled job.
+#
+# This replaces run.py, which spawned the servers as child processes and died
+# with the SSH session that started it.
+
+[Unit]
+Description=Threat Intelligence Dashboard (web UI + scheduler)
+Documentation=file:///opt/threatintel/deploy/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=threatintel
+Group=threatintel
+WorkingDirectory=/opt/threatintel
+
+# Credentials and settings. Keep this file outside the code directory, owned by
+# root, mode 0640 with group threatintel — so a compromise of the app cannot
+# rewrite its own configuration.
+EnvironmentFile=/etc/threatintel/threatintel.env
+
+# gunicorn rather than the Werkzeug development server, which has no request
+# timeouts and no slow-client protection.
+#   -w 1        exactly one worker. The app keeps in-process state (Socket.IO
+#               connections, the APScheduler instance, delivery locks); a second
+#               worker would run every scheduled job twice.
+#   -k gthread  matches async_mode='threading' in web_dashboard.py.
+ExecStart=/opt/threatintel/.venv/bin/gunicorn \
+    --workers 1 \
+    --worker-class gthread \
+    --threads 16 \
+    --timeout 120 \
+    --graceful-timeout 30 \
+    --bind 127.0.0.1:5001 \
+    --access-logfile - \
+    --error-logfile - \
+    web_dashboard:app
+
+Restart=on-failure
+RestartSec=5s
+
+# Journald captures stdout/stderr; the app additionally writes rotating files to
+# TI_LOG_DIR. Check both: `journalctl -u threatintel-dashboard -f`
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=threatintel-dashboard
+
+# ── Hardening ────────────────────────────────────────────────────────────
+# ProtectSystem=strict makes the whole filesystem read-only except the paths
+# listed below, so /opt/threatintel (the code) cannot be modified at runtime.
+# That is why TI_STATE_DIR must point at /var/lib/threatintel — the app writes
+# its signing secret there.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/threatintel /var/log/threatintel
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

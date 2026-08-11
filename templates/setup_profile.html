@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Set up your profile · Weekly Cyber Watch</title>
+<link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root {
+    --brand-dark: #13294B;
+    --brand-blue: #2F6BFF;
+    --brand-tint: #EAF0FF;
+    --slate-50:  #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-900: #0f172a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Geist", "Inter", -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 600px at 85% -10%, rgba(47,107,255,0.18), transparent 60%),
+      radial-gradient(700px 500px at 10% 110%, rgba(0,33,113,0.10), transparent 60%),
+      linear-gradient(180deg, #f8fafc 0%, #e8eef7 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 32px 24px;
+    color: var(--slate-900);
+  }
+  .card {
+    background: #ffffff;
+    width: min(540px, 100%);
+    border: 1px solid var(--slate-200);
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow: 0 20px 50px rgba(2,6,23,0.10), 0 2px 8px rgba(2,6,23,0.05);
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .brand img { height: 24px; }
+  .brand .strap {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--slate-500); text-transform: uppercase;
+  }
+  .head-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 4px;
+  }
+  .head-row .avatar,
+  .head-row .avatar-initial {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-dark) 100%);
+    color: #fff;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 22px; font-weight: 650; letter-spacing: -0.015em;
+    margin: 0; color: var(--brand-dark);
+  }
+  .sub {
+    font-size: 13.5px; color: var(--slate-600);
+    margin: 6px 0 22px;
+    line-height: 1.55;
+  }
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px;
+  }
+  .field.full { grid-column: 1 / -1; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--slate-600); margin-bottom: 6px;
+  }
+  .field label .req { color: #b91c1c; margin-left: 2px; }
+  .field input, .field select {
+    width: 100%; height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--slate-200); border-radius: 9px;
+    font-size: 14px; font-family: inherit;
+    color: var(--slate-900); background: #ffffff;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--brand-blue);
+    box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+  }
+  .field .hint {
+    margin-top: 5px; font-size: 11.5px; color: var(--slate-500);
+  }
+  .field input[disabled] {
+    background: var(--slate-50); color: var(--slate-500); cursor: not-allowed;
+  }
+  .section-divider {
+    grid-column: 1 / -1;
+    margin: 6px 0 -2px;
+    padding-top: 14px;
+    border-top: 1px solid var(--slate-200);
+  }
+  .section-divider .title {
+    font-size: 13px; font-weight: 650; color: var(--brand-dark);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-divider .desc {
+    font-size: 12px; color: var(--slate-500);
+    margin-top: 3px; line-height: 1.5;
+  }
+  .pwd-wrap { position: relative; }
+  .pwd-wrap input { padding-right: 40px; font-family: inherit; }
+  .pwd-wrap .eye {
+    position: absolute; top: 50%; right: 8px;
+    transform: translateY(-50%);
+    width: 30px; height: 30px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--slate-500); font-size: 13px;
+    border-radius: 6px;
+  }
+  .pwd-wrap .eye:hover { color: var(--brand-dark); background: var(--slate-100); }
+  .pwd-meter {
+    display: flex; gap: 4px; margin-top: 6px;
+    height: 4px;
+  }
+  .pwd-meter span {
+    flex: 1; background: var(--slate-200); border-radius: 999px;
+    transition: background .2s;
+  }
+  .pwd-meter[data-strength="1"] span:nth-child(-n+1) { background: #ef4444; }
+  .pwd-meter[data-strength="2"] span:nth-child(-n+2) { background: #f59e0b; }
+  .pwd-meter[data-strength="3"] span:nth-child(-n+3) { background: #10b981; }
+  .pwd-meter[data-strength="4"] span { background: #059669; }
+  .pwd-hint {
+    margin-top: 4px; font-size: 11.5px; color: var(--slate-500);
+  }
+  .pwd-hint.match-ok  { color: #047857; }
+  .pwd-hint.match-bad { color: #b91c1c; }
+
+  .actions {
+    margin-top: 22px;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .btn-secondary {
+    background: transparent; border: none;
+    color: var(--slate-500); font-size: 13px; font-weight: 600;
+    cursor: pointer; padding: 8px 4px; font-family: inherit;
+  }
+  .btn-secondary:hover { color: var(--brand-dark); }
+  .btn-primary {
+    min-width: 160px; height: 44px;
+    border-radius: 10px; border: 1px solid transparent;
+    background: linear-gradient(180deg, #0033b8 0%, var(--brand-dark) 100%);
+    color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,33,113,0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: background .15s, box-shadow .15s, transform .08s;
+    font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(180deg, #0040d8 0%, #001a4f 100%);
+    box-shadow: 0 4px 12px rgba(0,33,113,0.30);
+  }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  .btn-primary.loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .alert {
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 13px; line-height: 1.45;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .alert.err  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+  .alert.show { display: block; }
+
+  @media (max-width: 540px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <main class="card" role="main">
+    <div class="brand">
+      <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+      <span class="strap">IT Internal Audit · Weekly Cyber Watch</span>
+    </div>
+
+    <div class="head-row">
+      {% if user.picture %}
+        <img class="avatar" src="{{ user.picture }}" alt="" referrerpolicy="no-referrer">
+      {% else %}
+        <span class="avatar-initial">{{ (user.name or user.email or '?')[0]|upper }}</span>
+      {% endif %}
+      <div>
+        <h1>Set up your profile</h1>
+        <div class="sub" style="margin-top:4px;">Just a few details so the system knows who's who.</div>
+      </div>
+    </div>
+
+    <div class="alert err" id="err"></div>
+
+    <form id="setup-form" novalidate>
+      <div class="grid">
+        <div class="field">
+          <label for="display_name">Display name<span class="req">*</span></label>
+          <input type="text" id="display_name" name="display_name"
+                 value="{{ user.name or '' }}" maxlength="200" required
+                 placeholder="e.g. Alex Morgan">
+        </div>
+        <div class="field">
+          <label for="email_readonly">Signed in as</label>
+          <input type="text" id="email_readonly" value="{{ user.email or '' }}" disabled>
+        </div>
+
+        {% if user.provider != 'password' %}
+        <div class="section-divider">
+          <div class="title"><i class="fas fa-lock"></i> Set a password</div>
+          <div class="desc">
+            You signed in with {{ 'Google' if user.provider == 'google.com' else 'your provider' }}.
+            Add a password so you can also sign in with your email next time. Leave blank to skip.
+          </div>
+        </div>
+        <div class="field full">
+          <label for="password">New password</label>
+          <div class="pwd-wrap">
+            <input type="password" id="password" name="password"
+                   autocomplete="new-password" minlength="6" maxlength="128"
+                   placeholder="At least 6 characters">
+            <button type="button" class="eye" data-target="password" aria-label="Show password">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div class="pwd-meter" id="pwd-meter" data-strength="0">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="field full">
+          <label for="password_confirm">Confirm password</label>
+          <div class="pwd-wrap">
+            <input type="password" id="password_confirm" name="password_confirm"
+                   autocomplete="new-password" minlength="6" maxlength="128"
+                   placeholder="Re-type the same password">
+            <button type="button" class="eye" data-target="password_confirm" aria-label="Show password">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <div class="pwd-hint" id="pwd-hint">&nbsp;</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="signout-link">
+          <i class="fas fa-right-from-bracket"></i> Sign out
+        </button>
+        <button type="submit" class="btn-primary" id="submit-btn">
+          <span class="spinner"></span>
+          <span>Save &amp; continue</span>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Firebase compat SDK to link an email/password credential to the
+       currently signed-in Google user (no bundler required). -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+    const errEl = document.getElementById('err');
+    const showErr = (msg) => { errEl.textContent = msg; errEl.classList.add('show'); };
+    const clearErr = () => errEl.classList.remove('show');
+
+    // Initialize Firebase — config supplied by the server from TI_FIREBASE_*
+    // (see .env.example), so it is not duplicated or hardcoded here.
+    firebase.initializeApp({{ firebase_config | tojson }});
+
+    // ── Show / hide password toggles
+    document.querySelectorAll('.pwd-wrap .eye').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.querySelector('i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
+      });
+    });
+
+    // ── Strength meter (very basic: length + variety)
+    function scorePassword(p) {
+      if (!p) return 0;
+      let s = 0;
+      if (p.length >= 6)  s++;
+      if (p.length >= 10) s++;
+      if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++;
+      if (/[0-9]/.test(p) && /[^A-Za-z0-9]/.test(p)) s++;
+      return Math.min(s, 4);
+    }
+    const pwdEl  = document.getElementById('password');
+    const pwd2El = document.getElementById('password_confirm');
+    const meter  = document.getElementById('pwd-meter');
+    const hint   = document.getElementById('pwd-hint');
+
+    function refreshPwdUI() {
+      if (!pwdEl) return;
+      if (meter) meter.dataset.strength = String(scorePassword(pwdEl.value));
+      if (!hint) return;
+      const p1 = pwdEl.value, p2 = pwd2El ? pwd2El.value : '';
+      hint.classList.remove('match-ok', 'match-bad');
+      if (!p1 && !p2)              { hint.innerHTML = '&nbsp;'; }
+      else if (!p2)                 { hint.textContent = 'Re-enter the password to confirm.'; }
+      else if (p1 !== p2)           { hint.textContent = 'Passwords don\'t match yet.'; hint.classList.add('match-bad'); }
+      else if (p1.length < 6)       { hint.textContent = 'Password must be at least 6 characters.'; hint.classList.add('match-bad'); }
+      else                          { hint.textContent = '✓ Passwords match.'; hint.classList.add('match-ok'); }
+    }
+    if (pwdEl)  pwdEl.addEventListener('input', refreshPwdUI);
+    if (pwd2El) pwd2El.addEventListener('input', refreshPwdUI);
+
+    // ── Submit
+    const form = document.getElementById('setup-form');
+    const btn = document.getElementById('submit-btn');
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      clearErr();
+      const fd = new FormData(form);
+      const payload = {
+        display_name: (fd.get('display_name') || '').trim(),
+      };
+      if (!payload.display_name) { showErr('Please enter a display name.'); return; }
+
+      const password = (fd.get('password') || '').toString();
+      const password2 = (fd.get('password_confirm') || '').toString();
+      if (password || password2) {
+        if (password.length < 6)   { showErr('Password must be at least 6 characters.'); return; }
+        if (password !== password2){ showErr('The two passwords don\'t match.'); return; }
+      }
+
+      btn.classList.add('loading'); btn.disabled = true;
+      try {
+        // 1) Save the profile fields
+        const r = await fetch('/api/profile/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) { showErr(j.error || `Couldn't save (${r.status})`); return; }
+
+        // 2) Optionally link an email/password credential to this Firebase user
+        if (password) {
+          // Wait for Firebase to settle, but don't hang forever — if no auth
+          // state arrives in 5s the page Firebase session is gone (likely a
+          // cross-tab sign-out) and we can't link.
+          let fbUser = null;
+          try {
+            fbUser = await Promise.race([
+              new Promise(res => firebase.auth().onAuthStateChanged(u => res(u))),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
+            ]);
+          } catch (e) {
+            showErr('Could not reach Firebase to set a password. Sign out, sign in again, then try once more — your profile was saved.');
+            btn.classList.remove('loading'); btn.disabled = false;
+            return;
+          }
+          if (!fbUser) {
+            showErr('Your Firebase session was lost. Sign out, sign in again, then set a password — your profile was saved.');
+            btn.classList.remove('loading'); btn.disabled = false;
+            return;
+          }
+
+          try {
+            const cred = firebase.auth.EmailAuthProvider.credential(fbUser.email, password);
+            await fbUser.linkWithCredential(cred);
+          } catch (e) {
+            const map = {
+              'auth/provider-already-linked': null, // already had a password — fine
+              'auth/credential-already-in-use': null, // another account uses these creds
+              'auth/email-already-in-use':    'That email already has a password set elsewhere.',
+              'auth/weak-password':           'Password is too weak (minimum 6 characters).',
+              'auth/requires-recent-login':   'Please sign out and sign in again, then set a password.',
+              'auth/operation-not-allowed':   'Email/password sign-in is disabled in Firebase Console. Ask the admin to enable it.',
+              'auth/network-request-failed':  'Network error reaching Firebase. Check your connection and try again.',
+            };
+            if (map[e.code] === undefined) {
+              showErr(e.message || 'Could not set password — profile was still saved.');
+              btn.classList.remove('loading'); btn.disabled = false;
+              return;
+            }
+            if (map[e.code]) { showErr(map[e.code]); btn.classList.remove('loading'); btn.disabled = false; return; }
+          }
+        }
+
+        window.location.href = '/';
+      } catch (e) {
+        showErr(e.message || 'Network error');
+      } finally {
+        btn.classList.remove('loading'); btn.disabled = false;
+      }
+    });
+
+    // Sign-out shortcut for users who change their mind mid-setup
+    document.getElementById('signout-link').addEventListener('click', async () => {
+      try { await firebase.auth().signOut(); } catch (e) {}
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+      window.location.href = '/login';
+    });
+  </script>
+</body>
+</html>

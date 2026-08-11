@@ -1,0 +1,1351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Admin · Weekly Cyber Watch</title>
+  <link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Pre-paint theme application — prevents flash-of-wrong-theme.
+    // Read from localStorage, fall back to system preference.
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --brand-blue: #2F6BFF;
+      --brand-dark: #13294B;
+      --brand-bg:   #F5F7FA;
+      --brand-tint: #EAF0FF;
+      --border:     #d1dce8;
+      --slate-50:   #f8fafc;
+      --slate-100:  #f1f5f9;
+      --slate-200:  #e2e8f0;
+      --slate-400:  #94a3b8;
+      --slate-500:  #64748b;
+      --slate-600:  #475569;
+      --slate-700:  #334155;
+    }
+    * { box-sizing: border-box; }
+    :root { --sidebar-w-collapsed: 60px; --sidebar-w-expanded: 220px; }
+    body {
+      font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: var(--brand-bg);
+      color: var(--brand-dark);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      padding-left: var(--sidebar-w-collapsed);
+    }
+
+    /* ─── Left collapsing sidebar (mirrors dashboard.html) ────── */
+    .app-sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w-collapsed);
+      background: #ffffff;
+      border-right: 1px solid var(--slate-200);
+      z-index: 1050;
+      display: flex; flex-direction: column;
+      padding: 12px 8px;
+      overflow: hidden;
+      transition: width .26s cubic-bezier(.25,.1,.25,1), box-shadow .26s;
+      font-family: "Geist", "Inter", system-ui, sans-serif;
+    }
+    .app-sidebar:hover {
+      width: var(--sidebar-w-expanded);
+      box-shadow: 4px 0 24px rgba(2,6,23,0.10);
+    }
+    .app-sidebar .sb-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 8px 14px;
+      border-bottom: 1px solid var(--slate-100);
+      margin-bottom: 10px;
+      text-decoration: none;
+    }
+    .app-sidebar .sb-logo img { height: 28px; width: 28px; min-width: 28px; }
+    .app-sidebar .sb-logo .sb-logo-text {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      color: var(--brand-dark);
+      text-transform: uppercase;
+      white-space: nowrap;
+      opacity: 0; transform: translateX(-6px);
+      transition: opacity .22s, transform .22s;
+    }
+    .app-sidebar:hover .sb-logo .sb-logo-text { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-links {
+      display: flex; flex-direction: column; gap: 2px;
+      flex: 1 1 auto;
+      margin-top: 2px;
+      overflow-y: auto;
+    }
+    .app-sidebar .sb-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 10px;
+      border: none; background: transparent;
+      color: var(--slate-600);
+      border-radius: 9px;
+      font-size: 13.5px; font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      white-space: nowrap;
+      transition: background .15s, color .15s;
+    }
+    .app-sidebar .sb-link:hover {
+      background: var(--brand-tint);
+      color: var(--brand-dark);
+    }
+    .app-sidebar .sb-link.active {
+      background: var(--brand-tint);
+      color: var(--brand-dark);
+      box-shadow: inset 3px 0 0 var(--brand-blue);
+      font-weight: 600;
+    }
+    .app-sidebar .sb-link .sb-ico {
+      width: 28px; min-width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+    .app-sidebar .sb-link .sb-label {
+      opacity: 0; transform: translateX(-6px);
+      transition: opacity .25s, transform .25s;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .app-sidebar:hover .sb-link .sb-label {
+      opacity: 1; transform: translateX(0);
+    }
+    .app-sidebar .sb-foot {
+      flex-shrink: 0;
+      border-top: 1px solid var(--slate-100);
+      padding-top: 10px; margin-top: 8px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .app-sidebar .sb-user {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 10px;
+      border-radius: 8px; text-decoration: none;
+      transition: background .15s;
+    }
+    .app-sidebar a.sb-user:hover { background: var(--slate-100); }
+    .app-sidebar .sb-avatar,
+    .app-sidebar .sb-avatar-initial {
+      width: 28px; min-width: 28px; height: 28px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-dark) 100%);
+      color: #fff;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .app-sidebar .sb-user-meta {
+      min-width: 0; flex: 1;
+      opacity: 0; transform: translateX(-6px);
+      transition: opacity .25s, transform .25s;
+    }
+    .app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-user-meta .name {
+      font-size: 12.5px; font-weight: 600; color: var(--brand-dark);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-user-meta .email {
+      font-size: 11px; color: var(--slate-500);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-logout { color: #b91c1c; }
+    .app-sidebar .sb-logout:hover {
+      background: #fee2e2; color: #991b1b;
+    }
+    html.dark .app-sidebar {
+      background: #0a1226; border-right-color: #1f2c4d;
+    }
+    html.dark .app-sidebar:hover {
+      box-shadow: 4px 0 24px rgba(0,0,0,0.35);
+    }
+    html.dark .app-sidebar .sb-logo { border-bottom-color: #1f2c4d; }
+    html.dark .app-sidebar .sb-logo .sb-logo-text { color: #f1f5f9; }
+    html.dark .app-sidebar .sb-link { color: #94a3b8; }
+    html.dark .app-sidebar .sb-link:hover { background: #1a2540; color: #f1f5f9; }
+    html.dark .app-sidebar .sb-link.active {
+      background: #1a2540; color: #f1f5f9;
+      box-shadow: inset 3px 0 0 var(--brand-blue);
+    }
+    html.dark .app-sidebar .sb-foot { border-top-color: #1f2c4d; }
+    html.dark .app-sidebar a.sb-user:hover { background: #1a2540; }
+    html.dark .app-sidebar .sb-user-meta .name { color: #f1f5f9; }
+    html.dark .app-sidebar .sb-user-meta .email { color: #94a3b8; }
+    html.dark .app-sidebar .sb-logout { color: #fca5a5; }
+    html.dark .app-sidebar .sb-logout:hover { background: #3a1117; color: #fecaca; }
+    @media (max-width: 768px) {
+      .app-sidebar { display: none; }
+      body { padding-left: 0; }
+    }
+    /* ─── Header (mirrors SOD) ─────────────────────────────────── */
+    header.app {
+      background: #fff;
+      border-bottom: 1px solid var(--slate-200);
+      position: sticky; top: 0; z-index: 40;
+    }
+    header.app .inner {
+      max-width: 72rem; margin: 0 auto; padding: 0 24px;
+      display: flex; align-items: center; height: 64px; gap: 32px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .brand img { height: 28px; width: auto; display: block; }
+    .brand .divider {
+      width: 1px; height: 32px; background: var(--slate-200);
+    }
+    .brand .title {
+      font-size: 15px; font-weight: 600; color: var(--brand-dark);
+      letter-spacing: -0.01em; line-height: 1.1;
+    }
+    .brand .subtitle {
+      font-size: 10.5px; color: var(--slate-400); font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.12em; margin-top: 2px;
+    }
+    .nav-back {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 500; color: var(--slate-500);
+      text-decoration: none; transition: color .15s, background .15s;
+    }
+    .nav-back:hover { color: var(--brand-dark); background: var(--slate-100); }
+
+    /* ─── Main ──────────────────────────────────────────────────── */
+    main {
+      max-width: 72rem; margin: 0 auto; padding: 32px 24px 80px;
+    }
+    .page-hero { margin-bottom: 28px; }
+    .page-hero h1 {
+      font-size: 24px; font-weight: 600; color: var(--brand-dark);
+      letter-spacing: -0.02em; margin: 0;
+    }
+    .page-hero p {
+      font-size: 13.5px; color: var(--slate-500); margin: 6px 0 0 0;
+      max-width: 600px; line-height: 1.55;
+    }
+
+    /* ─── Banners ───────────────────────────────────────────────── */
+    .banner {
+      padding: 12px 16px; border-radius: 10px;
+      margin-bottom: 16px; font-size: 13px; display: none;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .banner.info {
+      background: var(--brand-tint);
+      border: 1px solid rgba(47,107,255,0.3);
+      color: var(--brand-dark);
+    }
+    .banner.success {
+      background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
+    }
+    .banner.error {
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+    }
+    .banner.hidden { display: none; }
+    .banner .dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .banner.info .dot { background: var(--brand-blue); }
+    .banner.success .dot { background: #10b981; }
+    .banner.error .dot { background: #ef4444; }
+
+    /* ─── Cards ─────────────────────────────────────────────────── */
+    .section {
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      box-shadow: 0 1px 2px 0 rgba(0,0,0,0.04);
+      overflow: hidden;
+      margin-bottom: 18px;
+      transition: box-shadow .2s;
+    }
+    .section:hover { box-shadow: 0 4px 14px rgba(0,41,112,0.05); }
+    .section-head {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--slate-100);
+      background: linear-gradient(to right, var(--slate-50), #fff);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-head .icon-chip {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--brand-tint);
+      color: var(--brand-dark);
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .section-head .titles { flex: 1; min-width: 0; }
+    .section-head h2 {
+      margin: 0; font-size: 13px; font-weight: 600;
+      color: var(--brand-dark); text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .section-head .section-sub {
+      font-size: 12px; color: var(--slate-500);
+      margin-top: 2px;
+    }
+    .section-body { padding: 20px 22px; }
+
+    /* ─── Live configuration summary card ───────────────────────── */
+    .live-summary {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .live-summary-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .live-summary-head .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+      animation: livepulse 2s infinite;
+    }
+    @keyframes livepulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.18); }
+      50%      { box-shadow: 0 0 0 5px rgba(16,185,129,0.10); }
+    }
+    .live-summary-head h2 {
+      margin: 0; font-size: 11px; font-weight: 600;
+      color: var(--slate-500); text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .live-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px 24px;
+    }
+    .live-summary-item .key {
+      font-size: 10.5px; font-weight: 600;
+      color: var(--slate-400);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 3px;
+    }
+    .live-summary-item .val {
+      font-size: 13px;
+      color: var(--brand-dark);
+      font-weight: 500;
+      word-break: break-all;
+      font-variant-numeric: tabular-nums;
+    }
+    .live-summary-item .val.muted { color: var(--slate-400); font-weight: 400; font-style: italic; }
+
+    /* ─── Form fields ───────────────────────────────────────────── */
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 11px; font-weight: 600;
+      color: var(--slate-500);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .field input[type="text"],
+    .field input[type="email"],
+    .field input[type="password"],
+    .field input[type="number"],
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 9px 12px;
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 8px;
+      color: var(--brand-dark);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field textarea { resize: vertical; min-height: 88px; font-family: inherit; }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      outline: none;
+      border-color: var(--brand-blue);
+      box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
+    }
+    .field input::placeholder, .field textarea::placeholder {
+      color: var(--slate-400);
+    }
+    .field .hint {
+      font-size: 11px; color: var(--slate-400); margin-top: 6px;
+    }
+
+    /* Weekday chips */
+    .weekday-row {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 4px 0;
+    }
+    .weekday-row label {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px; border-radius: 999px;
+      border: 1px solid var(--slate-200);
+      background: #fff;
+      font-size: 12px; font-weight: 500; color: var(--slate-500);
+      cursor: pointer; transition: all .15s;
+      margin: 0; text-transform: none; letter-spacing: 0;
+    }
+    .weekday-row label:hover { border-color: var(--brand-blue); color: var(--brand-dark); }
+    .weekday-row input[type="checkbox"] {
+      appearance: none; -webkit-appearance: none;
+      width: 12px; height: 12px; border-radius: 3px;
+      border: 1.5px solid var(--slate-400);
+      position: relative; cursor: pointer;
+      transition: all .15s;
+    }
+    .weekday-row input[type="checkbox"]:checked {
+      background: var(--brand-blue); border-color: var(--brand-blue);
+    }
+    .weekday-row input[type="checkbox"]:checked::after {
+      content: ""; position: absolute;
+      left: 3px; top: 0px;
+      width: 4px; height: 8px;
+      border: solid #fff; border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    .weekday-row label:has(input:checked) {
+      background: var(--brand-tint); border-color: var(--brand-blue);
+      color: var(--brand-dark);
+    }
+
+    /* Password reveal */
+    .password-wrap { position: relative; }
+    .password-wrap button.toggle {
+      position: absolute; right: 8px; top: 50%;
+      transform: translateY(-50%);
+      background: transparent; border: none;
+      color: var(--slate-400);
+      padding: 4px 10px; font-size: 11px;
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; cursor: pointer;
+      border-radius: 4px;
+    }
+    .password-wrap button.toggle:hover {
+      color: var(--brand-dark); background: var(--slate-100);
+    }
+
+    /* ─── Sticky action bar ─────────────────────────────────────── */
+    .actions {
+      position: sticky; bottom: 0;
+      display: flex; gap: 10px;
+      padding: 16px 0;
+      margin-top: 8px;
+      background: linear-gradient(to top, var(--brand-bg) 80%, rgba(245,247,250,0));
+      border-top: 1px solid transparent;
+      backdrop-filter: blur(4px);
+    }
+    .actions .left-group  { display: flex; gap: 10px; align-items: center; }
+    .actions .right-group { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+    button.btn, a.btn {
+      padding: 0 16px; height: 36px;
+      border-radius: 7px; border: 1px solid transparent;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      text-decoration: none;
+      transition: background .15s, color .15s, border-color .15s, transform .1s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    button.btn:active { transform: translateY(1px); }
+    button.btn.primary, a.btn.primary {
+      background: var(--brand-dark); color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    button.btn.primary:hover, a.btn.primary:hover { background: #001a4f; }
+    button.btn.primary:disabled {
+      background: var(--slate-200); color: var(--slate-400);
+      cursor: not-allowed; box-shadow: none;
+    }
+    button.btn.secondary, a.btn.secondary {
+      background: #fff; color: var(--slate-600);
+      border-color: var(--slate-200);
+    }
+    button.btn.secondary:hover, a.btn.secondary:hover { border-color: var(--slate-400); color: var(--brand-dark); }
+    button.btn.ghost {
+      background: transparent; color: var(--brand-blue);
+      border-color: rgba(47,107,255,0.4);
+    }
+    button.btn.ghost:hover {
+      background: var(--brand-tint); color: var(--brand-dark);
+      border-color: var(--brand-blue);
+    }
+
+    .loading {
+      color: var(--slate-400); font-size: 13px;
+      padding: 32px; text-align: center;
+    }
+
+    @media (max-width: 640px) {
+      header.app .inner { padding: 0 16px; }
+      main { padding: 24px 16px 80px; }
+    }
+
+    /* ─── Theme toggle button (in header) ───────────────────────── */
+    /* Pill-style theme toggle (ported from the shadcn/Tailwind reference) */
+    .theme-toggle {
+      width: 64px; height: 32px;
+      padding: 4px;
+      border-radius: 9999px;
+      border: 1px solid var(--slate-200);
+      background: #ffffff;
+      display: inline-flex; align-items: center;
+      cursor: pointer;
+      transition: background .3s, border-color .3s;
+      margin-left: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html.dark .theme-toggle { background: #09090b; border-color: #27272a; }
+    .theme-toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(47,107,255,0.30); }
+    .theme-toggle .tt-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .theme-toggle .tt-slot { width: 24px; height: 24px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; transition: transform .3s, background .3s, color .3s; }
+    .theme-toggle .tt-active { background: #e5e7eb; color: #374151; transform: translateX(32px); }
+    html.dark .theme-toggle .tt-active { background: #27272a; color: #ffffff; transform: translateX(0); }
+    .theme-toggle .tt-muted  { background: transparent; color: #6b7280; transform: translateX(-32px); }
+    html.dark .theme-toggle .tt-muted { transform: translateX(0); color: #6b7280; }
+    .theme-toggle .tt-active i, .theme-toggle .tt-muted i { font-size: 14px; line-height: 1; }
+    .theme-toggle .tt-active .sun  { display: inline-block; }
+    .theme-toggle .tt-active .moon { display: none; }
+    .theme-toggle .tt-muted  .moon { display: inline-block; }
+    .theme-toggle .tt-muted  .sun  { display: none; }
+    html.dark .theme-toggle .tt-active .sun  { display: none; }
+    html.dark .theme-toggle .tt-active .moon { display: inline-block; }
+    html.dark .theme-toggle .tt-muted  .moon { display: none; }
+    html.dark .theme-toggle .tt-muted  .sun  { display: inline-block; }
+
+    /* ─── Cache list (Storage & cache section) ────────────────── */
+    .cache-list { display: flex; flex-direction: column; gap: 10px; }
+    .cache-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--slate-200);
+      border-radius: 10px;
+      background: var(--slate-50);
+    }
+    .cache-item .cache-meta { flex: 1; min-width: 0; }
+    .cache-item .cache-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--brand-dark); margin-bottom: 2px;
+    }
+    .cache-item .cache-desc {
+      font-size: 11.5px; color: var(--slate-500);
+    }
+    .cache-item .cache-count {
+      font-size: 12.5px; color: var(--slate-500);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      padding: 3px 10px;
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 999px;
+      font-weight: 500;
+    }
+    .cache-item .cache-count.zero { color: var(--slate-400); }
+    .cache-item .btn-clear {
+      padding: 0 12px; height: 30px;
+      background: #fff;
+      color: var(--danger-rose, #e11d48);
+      border: 1px solid var(--slate-200);
+      border-radius: 6px;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .cache-item .btn-clear:hover {
+      border-color: var(--danger-rose, #e11d48);
+      background: #fff5f7;
+    }
+    .cache-item .btn-clear:disabled {
+      color: var(--slate-400); cursor: not-allowed;
+      border-color: var(--slate-200); background: var(--slate-50);
+    }
+
+    /* ─── DARK MODE OVERRIDES ──────────────────────────────────── */
+    html.dark {
+      color-scheme: dark;
+      --brand-bg:   #0b1220;
+      --brand-dark: #e2e8f0;      /* now used as foreground */
+      --brand-tint: rgba(47,107,255,0.12);
+      --slate-50:   #131c2f;
+      --slate-100:  #1a2540;
+      --slate-200:  #1f2a44;
+      --slate-400:  #64748b;
+      --slate-500:  #94a3b8;
+      --slate-600:  #cbd5e1;
+      --slate-700:  #e2e8f0;
+    }
+    html.dark body { color: var(--brand-dark); }
+    html.dark header.app { background: #0f172a; border-bottom-color: var(--slate-200); }
+    html.dark .brand img { filter: brightness(0) invert(1); }
+    html.dark .brand .title { color: #f1f5f9; }
+    html.dark .page-hero h1 { color: #f1f5f9; }
+    html.dark .section,
+    html.dark .live-summary { background: #111a2e; }
+    html.dark .section-head { background: linear-gradient(to right, #131c2f, #111a2e); border-bottom-color: var(--slate-200); }
+    html.dark .section-head h2 { color: #cbd5e1; }
+    html.dark .live-summary-item .val { color: #e2e8f0; }
+    html.dark .field input[type="text"],
+    html.dark .field input[type="email"],
+    html.dark .field input[type="password"],
+    html.dark .field input[type="number"],
+    html.dark .field select,
+    html.dark .field textarea {
+      background: #0f172a;
+      color: var(--brand-dark);
+      border-color: var(--slate-200);
+    }
+    html.dark .field input:focus,
+    html.dark .field select:focus,
+    html.dark .field textarea:focus { border-color: var(--brand-blue); }
+    html.dark .weekday-row label { background: #111a2e; color: #cbd5e1; }
+    html.dark .weekday-row label:has(input:checked) {
+      background: rgba(47,107,255,0.15); color: #93c5fd; border-color: var(--brand-blue);
+    }
+    html.dark .banner.info {
+      background: rgba(47,107,255,0.10);
+      border-color: rgba(47,107,255,0.35);
+      color: #93c5fd;
+    }
+    html.dark .banner.success {
+      background: rgba(16,185,129,0.10); border-color: rgba(16,185,129,0.35); color: #6ee7b7;
+    }
+    html.dark .banner.error {
+      background: rgba(239,68,68,0.10); border-color: rgba(239,68,68,0.35); color: #fca5a5;
+    }
+    html.dark .actions {
+      background: linear-gradient(to top, var(--brand-bg) 80%, transparent);
+    }
+    html.dark button.btn.secondary, html.dark a.btn.secondary {
+      background: #111a2e; color: #cbd5e1; border-color: var(--slate-200);
+    }
+    html.dark button.btn.secondary:hover, html.dark a.btn.secondary:hover {
+      color: #f1f5f9; border-color: var(--brand-blue);
+    }
+    html.dark button.btn.primary { background: var(--brand-blue); color: #0b1220; }
+    html.dark button.btn.primary:hover { background: #38d2ff; color: #0b1220; }
+    html.dark button.btn.ghost { color: #93c5fd; }
+    html.dark .password-wrap button.toggle:hover { background: #1a2540; color: #f1f5f9; }
+    html.dark .field .hint, html.dark .section-head .section-sub { color: #94a3b8; }
+    html.dark .nav-back:hover { background: #1a2540; color: #f1f5f9; }
+    html.dark .cache-item { background: #0f172a; border-color: var(--slate-200); }
+    html.dark .cache-item .cache-title { color: #f1f5f9; }
+    html.dark .cache-item .cache-desc { color: #94a3b8; }
+    html.dark .cache-item .cache-count { background: #111a2e; color: #cbd5e1; border-color: var(--slate-200); }
+    html.dark .cache-item .btn-clear { background: #111a2e; border-color: var(--slate-200); }
+    html.dark .cache-item .btn-clear:hover { background: rgba(225,29,72,0.10); }
+
+    /* ─── Custom confirm modal (matches dashboard) ───────────────── */
+    #confirm-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(2,6,23,0.45);
+      display: none; align-items: center; justify-content: center;
+      z-index: 2100;
+      opacity: 0;
+      transition: opacity .18s ease-out;
+      backdrop-filter: blur(2px);
+    }
+    #confirm-backdrop.in { display: flex; opacity: 1; }
+    .confirm-dialog {
+      width: min(440px, calc(100vw - 32px));
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(2,6,23,0.25);
+      overflow: hidden;
+      font-family: "Geist", "Inter", system-ui, sans-serif;
+      transform: scale(.96);
+      transition: transform .2s ease-out;
+    }
+    #confirm-backdrop.in .confirm-dialog { transform: scale(1); }
+    .confirm-dialog .confirm-head { display: flex; align-items: flex-start; gap: 12px; padding: 20px 22px 6px; }
+    .confirm-dialog .confirm-icon {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+      background: var(--brand-tint); color: var(--brand-dark);
+      flex-shrink: 0;
+    }
+    .confirm-dialog.danger .confirm-icon { background: #fee2e2; color: #b91c1c; }
+    .confirm-dialog h3 { margin: 4px 0 0 0; font-size: 16px; font-weight: 600; color: var(--brand-dark); letter-spacing: -0.01em; }
+    .confirm-dialog .confirm-body {
+      padding: 6px 22px 18px 72px;
+      font-size: 13.5px; color: var(--slate-600);
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+    .confirm-dialog .confirm-input {
+      margin-top: 12px; width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--slate-200);
+      border-radius: 8px;
+      font-size: 13px; font-family: inherit;
+      color: var(--brand-dark); background: #ffffff;
+    }
+    .confirm-dialog .confirm-input:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(47,107,255,0.18); }
+    .confirm-dialog .confirm-actions {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 22px 18px;
+      background: var(--slate-50); border-top: 1px solid var(--slate-100);
+    }
+    .confirm-dialog button {
+      padding: 0 16px; height: 36px;
+      border-radius: 7px; border: 1px solid transparent;
+      font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .confirm-dialog button.cancel { background: #ffffff; color: var(--slate-600); border-color: var(--slate-200); }
+    .confirm-dialog button.cancel:hover { border-color: var(--slate-400); color: var(--brand-dark); }
+    .confirm-dialog button.go { background: var(--brand-dark); color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .confirm-dialog button.go:hover { background: #001a4f; }
+    .confirm-dialog.danger button.go { background: #e11d48; }
+    .confirm-dialog.danger button.go:hover { background: #be123c; }
+
+    html.dark .confirm-dialog { background: #111a2e; border-color: var(--slate-200); }
+    html.dark .confirm-dialog h3 { color: #f1f5f9; }
+    html.dark .confirm-dialog .confirm-body { color: #cbd5e1; }
+    html.dark .confirm-dialog .confirm-actions { background: #0f172a; border-top-color: var(--slate-200); }
+    html.dark .confirm-dialog .confirm-input { background: #0f172a; color: var(--brand-dark); border-color: var(--slate-200); }
+    html.dark .confirm-dialog button.cancel { background: #0f172a; color: #cbd5e1; border-color: var(--slate-200); }
+    html.dark .confirm-dialog button.cancel:hover { color: #f1f5f9; border-color: var(--brand-blue); }
+    html.dark .confirm-dialog button.go { background: var(--brand-blue); color: #0b1220; }
+    html.dark .confirm-dialog button.go:hover { background: #38d2ff; }
+  </style>
+</head>
+<body>
+  <!-- Left collapsing sidebar (hover to expand) -->
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+    <a class="sb-logo" href="/" title="Weekly Cyber Watch">
+      <img src="{{ brand.icon }}" alt="{{ brand.name }}">
+      <span class="sb-logo-text">Cyber Watch</span>
+    </a>
+    <nav class="sb-links">
+      <a class="sb-link" href="/" title="Dashboard">
+        <span class="sb-ico"><i class="fas fa-house"></i></span>
+        <span class="sb-label">Dashboard</span>
+      </a>
+      <a class="sb-link active" href="/admin" title="Admin Settings">
+        <span class="sb-ico"><i class="fas fa-user-shield"></i></span>
+        <span class="sb-label">Admin</span>
+      </a>
+      <a class="sb-link" href="/admin/users" title="Users &amp; Access">
+        <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
+        <span class="sb-label">Users &amp; Access</span>
+      </a>
+      <a class="sb-link" href="/?refresh=1" title="Refresh project (wipe articles &amp; workflow state)">
+        <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
+        <span class="sb-label">Refresh Project</span>
+      </a>
+      <a class="sb-link" href="/settings" title="My account &amp; password">
+        <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
+        <span class="sb-label">My Account</span>
+      </a>
+    </nav>
+    <div class="sb-foot">
+      <a class="sb-user" id="sb-user" href="/settings" title="My account" style="display:none;">
+        <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
+        <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
+        <div class="sb-user-meta">
+          <div class="name" id="sb-user-name">Signed in</div>
+          <div class="email" id="sb-user-email">—</div>
+        </div>
+      </a>
+      <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
+        <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
+        <span class="sb-label">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <header class="app">
+    <div class="inner">
+      <a class="brand" href="/">
+        <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+        <div class="divider" aria-hidden="true"></div>
+        <div>
+          <div class="title">Weekly Cyber Watch</div>
+          <div class="subtitle">IT Internal Audit · Admin</div>
+        </div>
+      </a>
+      <button type="button" id="theme-toggle" class="theme-toggle" style="margin-left:auto;" role="switch" aria-label="Toggle light / dark theme" title="Toggle theme">
+        <span class="tt-row">
+          <span class="tt-active tt-slot" aria-hidden="true">
+            <i class="fas fa-moon moon"></i>
+            <i class="fas fa-sun sun"></i>
+          </span>
+          <span class="tt-muted tt-slot" aria-hidden="true">
+            <i class="fas fa-sun sun"></i>
+            <i class="fas fa-moon moon"></i>
+          </span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-hero">
+      <h1>Admin settings</h1>
+      <p>Manage email accounts, SMTP credentials, and the scraping &amp; delivery schedule for the Weekly Cyber Watch system.</p>
+    </div>
+
+    <!-- Live configuration summary (read-only, shows what's saved right now) -->
+    <section class="live-summary" id="liveSummary" style="display:none;">
+      <div class="live-summary-head">
+        <span class="live-dot" aria-hidden="true"></span>
+        <h2>Active configuration</h2>
+      </div>
+      <div class="live-summary-grid" id="liveSummaryGrid"></div>
+    </section>
+
+    <div id="banner-restart" class="banner info">
+      <span class="dot"></span>
+      <span>Email, SMTP, and article-limit changes apply immediately. Schedule changes take effect after the next server restart.</span>
+    </div>
+    <div id="banner-status" class="banner hidden"></div>
+
+    <div id="form-root">
+      <div class="loading">Loading settings…</div>
+    </div>
+
+    <!-- Storage & cache (data clearing) -->
+    <section class="section" id="cacheSection" style="display:none;">
+      <header class="section-head">
+        <span class="icon-chip" aria-hidden="true">🗑</span>
+        <div class="titles">
+          <h2>Storage &amp; cache</h2>
+          <div class="section-sub">Clear accumulated data. All actions are irreversible — use with care.</div>
+        </div>
+      </header>
+      <div class="section-body">
+        <div id="cacheList" class="cache-list">
+          <div class="loading">Loading cache stats…</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <div class="left-group">
+        <button type="button" class="btn ghost" id="btn-test-email" title="Send a test email using the currently saved credentials">
+          <i style="font-size:11px;">✉</i> Send test email
+        </button>
+      </div>
+      <div class="right-group">
+        <button type="button" class="btn secondary" id="btn-reset">Discard changes</button>
+        <button type="button" class="btn primary" id="btn-save" disabled>Save changes</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Per-section icon + subtitle + (for live summary) which fields to display
+    const SECTION_GROUPS = [
+      { title: "Email accounts", icon: "✉",  sub: "Sender, manager, SOC team, and CC recipients.",
+        fields: ["SENDER_EMAIL", "SENDER_PASSWORD", "MANAGER_EMAIL", "SOC_EMAIL", "SOC_EMAIL_CC"] },
+      { title: "SMTP server",    icon: "⚙",  sub: "Outgoing mail server used to deliver email.",
+        fields: ["SMTP_SERVER", "SMTP_PORT"] },
+      { title: "Branding & email subjects", icon: "★", sub: "Company name and subject lines used in outgoing mails.",
+        fields: ["COMPANY_NAME", "EMAIL_SUBJECT_MANAGER", "EMAIL_SUBJECT_SOC"] },
+      { title: "Article limits", icon: "#", sub: "Maximum number of articles per email batch.",
+        fields: ["MAX_NEWS_TO_MANAGER", "MAX_NEWS_PER_SOC_EMAIL"] },
+      { title: "Scraping schedule", icon: "🔍", sub: "Day and time the automatic weekly scrape runs.",
+        fields: ["SCRAPING_DAY", "SCRAPING_HOUR", "SCRAPING_MINUTE"] },
+      { title: "SOC delivery schedule", icon: "📅", sub: "Day(s) and time the SOC team receives the digest.",
+        fields: ["SOC_DELIVERY_DAYS", "SOC_DELIVERY_HOUR", "SOC_DELIVERY_MINUTE"] },
+    ];
+
+    // Fields shown in the read-only "Active configuration" summary at the top
+    const LIVE_SUMMARY_FIELDS = [
+      { key: "SENDER_EMAIL",  label: "Sender" },
+      { key: "MANAGER_EMAIL", label: "Manager" },
+      { key: "SOC_EMAIL",     label: "SOC primary" },
+      { key: "SOC_EMAIL_CC",  label: "SOC CC",
+        formatter: (v) => {
+          if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+          const s = String(v || '').trim();
+          return s || '—';
+        } },
+      { key: "SMTP_SERVER",   label: "SMTP server", formatter: (v, all) => `${v}:${all.SMTP_PORT || ''}` },
+      { key: "SCRAPING_DAY",  label: "Scraping",    formatter: (v, all) => `${cap(v)} at ${pad2(all.SCRAPING_HOUR)}:${pad2(all.SCRAPING_MINUTE)}` },
+      { key: "SOC_DELIVERY_DAYS", label: "SOC delivery", formatter: (v, all) => `${(Array.isArray(v) ? v.map(cap).join(', ') : v)} at ${pad2(all.SOC_DELIVERY_HOUR)}:${pad2(all.SOC_DELIVERY_MINUTE)}` },
+    ];
+    function cap(s) { s = String(s || ''); return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+    function pad2(n) { return String(n != null ? n : 0).padStart(2, '0'); }
+
+    const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+    let fieldsByName = {};
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+
+    function renderField(field) {
+      const value = field.value === null || field.value === undefined ? "" : field.value;
+      const label = `<label for="f-${field.name}">${escapeHtml(field.label)}</label>`;
+      let input;
+      switch (field.type) {
+        case "password":
+          input = `
+            <div class="password-wrap">
+              <input id="f-${field.name}" type="password" data-name="${field.name}" value="${escapeHtml(value)}" autocomplete="off">
+              <button type="button" class="toggle" data-target="f-${field.name}">show</button>
+            </div>`;
+          break;
+        case "email":
+          input = `<input id="f-${field.name}" type="email" data-name="${field.name}" value="${escapeHtml(value)}" autocomplete="off">`;
+          break;
+        case "int":
+          input = `<input id="f-${field.name}" type="number" data-name="${field.name}" value="${escapeHtml(value)}">`;
+          break;
+        case "email_list": {
+          const lines = Array.isArray(value) ? value.join("\n") : String(value);
+          input = `<textarea id="f-${field.name}" data-name="${field.name}" data-list="email" placeholder="one email per line">${escapeHtml(lines)}</textarea>
+                   <div class="hint">One email address per line.</div>`;
+          break;
+        }
+        case "weekday": {
+          const opts = WEEKDAYS.map(d =>
+            `<option value="${d}" ${d === String(value).toLowerCase() ? "selected" : ""}>${d[0].toUpperCase() + d.slice(1)}</option>`
+          ).join("");
+          input = `<select id="f-${field.name}" data-name="${field.name}">${opts}</select>`;
+          break;
+        }
+        case "weekday_list": {
+          const selected = Array.isArray(value) ? value.map(v => String(v).toLowerCase()) : [];
+          const checks = WEEKDAYS.map(d => `
+            <label>
+              <input type="checkbox" data-list-item="${field.name}" value="${d}" ${selected.includes(d) ? "checked" : ""}>
+              ${d[0].toUpperCase() + d.slice(1)}
+            </label>`).join("");
+          input = `<div class="weekday-row" data-name="${field.name}" data-list="weekday">${checks}</div>`;
+          break;
+        }
+        default:
+          input = `<input id="f-${field.name}" type="text" data-name="${field.name}" value="${escapeHtml(value)}">`;
+      }
+      const hint = field.hint ? `<div class="hint">${escapeHtml(field.hint)}</div>` : '';
+      return `<div class="field">${label}${input}${hint}</div>`;
+    }
+
+    function renderLiveSummary(fields) {
+      const allValues = {};
+      fields.forEach(f => { allValues[f.name] = f.value; });
+      const grid = document.getElementById("liveSummaryGrid");
+      grid.innerHTML = LIVE_SUMMARY_FIELDS.map(spec => {
+        const raw = allValues[spec.key];
+        const display = spec.formatter ? spec.formatter(raw, allValues) : raw;
+        const isEmpty = display === undefined || display === null || display === "" || display === "()";
+        return `
+          <div class="live-summary-item">
+            <div class="key">${escapeHtml(spec.label)}</div>
+            <div class="val ${isEmpty ? 'muted' : ''}">${isEmpty ? 'not set' : escapeHtml(display)}</div>
+          </div>`;
+      }).join("");
+      document.getElementById("liveSummary").style.display = "";
+    }
+
+    function renderAll(fields) {
+      fieldsByName = {};
+      fields.forEach(f => { fieldsByName[f.name] = f; });
+
+      renderLiveSummary(fields);
+
+      const root = document.getElementById("form-root");
+      const html = SECTION_GROUPS.map(group => {
+        const items = group.fields
+          .filter(name => fieldsByName[name])
+          .map(name => renderField(fieldsByName[name]))
+          .join("");
+        if (!items) return "";
+        return `
+          <section class="section">
+            <header class="section-head">
+              <span class="icon-chip" aria-hidden="true">${group.icon || '·'}</span>
+              <div class="titles">
+                <h2>${escapeHtml(group.title)}</h2>
+                ${group.sub ? `<div class="section-sub">${escapeHtml(group.sub)}</div>` : ''}
+              </div>
+            </header>
+            <div class="section-body">${items}</div>
+          </section>`;
+      }).join("");
+      root.innerHTML = html;
+      document.getElementById("btn-save").disabled = false;
+      root.querySelectorAll("button.toggle").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const el = document.getElementById(btn.dataset.target);
+          if (!el) return;
+          if (el.type === "password") { el.type = "text"; btn.textContent = "hide"; }
+          else { el.type = "password"; btn.textContent = "show"; }
+        });
+      });
+    }
+
+    function collect() {
+      const out = {};
+      Object.values(fieldsByName).forEach(f => {
+        if (f.type === "weekday_list") {
+          const boxes = document.querySelectorAll(`input[data-list-item="${f.name}"]:checked`);
+          out[f.name] = Array.from(boxes).map(b => b.value);
+        } else if (f.type === "email_list") {
+          const el = document.querySelector(`textarea[data-name="${f.name}"]`);
+          out[f.name] = el ? el.value : "";
+        } else {
+          const el = document.querySelector(`[data-name="${f.name}"]`);
+          if (el && "value" in el) out[f.name] = el.value;
+        }
+      });
+      return out;
+    }
+
+    function showBanner(kind, message) {
+      const b = document.getElementById("banner-status");
+      b.className = "banner " + kind;
+      b.innerHTML = `<span class="dot"></span><span>${escapeHtml(message)}</span>`;
+      if (kind === "success") setTimeout(() => { b.className = "banner hidden"; }, 6000);
+    }
+
+    async function load() {
+      document.getElementById("btn-save").disabled = true;
+      try {
+        const r = await fetch("/api/admin/settings");
+        const j = await r.json();
+        if (j.status !== "success") throw new Error("Failed to load settings");
+        renderAll(j.fields);
+      } catch (e) {
+        showBanner("error", "Could not load settings: " + e.message);
+      }
+    }
+
+    async function save() {
+      const btn = document.getElementById("btn-save");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        const r = await fetch("/api/admin/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ settings: collect() }),
+        });
+        const j = await r.json();
+        if (j.status === "success") {
+          showBanner("success", j.message || "Saved. Restart servers to apply.");
+        } else {
+          const errs = j.errors ? Object.entries(j.errors).map(([k, v]) => `${k}: ${v}`).join("; ") : "Unknown error";
+          showBanner("error", "Validation failed — " + errs);
+        }
+      } catch (e) {
+        showBanner("error", "Save failed: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Save changes";
+      }
+    }
+
+    async function testEmail() {
+      const btn = document.getElementById("btn-test-email");
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = "Sending…";
+      try {
+        const r = await fetch("/api/admin/test-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const j = await r.json();
+        const diagLine = j.diag
+          ? ` (${j.diag.sender} → ${j.diag.recipient} via ${j.diag.smtp})`
+          : "";
+        if (j.status === "success") {
+          showBanner("success", (j.message || "Sent.") + diagLine);
+        } else {
+          const detail = j.detail ? ` — ${j.detail}` : "";
+          showBanner("error", `[${j.stage}] ${j.message}${detail}${diagLine}`);
+        }
+      } catch (e) {
+        showBanner("error", "Test request failed: " + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    document.getElementById("btn-save").addEventListener("click", save);
+    document.getElementById("btn-reset").addEventListener("click", load);
+    document.getElementById("btn-test-email").addEventListener("click", testEmail);
+
+    // Theme toggle
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const isDark = document.documentElement.classList.toggle("dark");
+      try { localStorage.setItem("theme", isDark ? "dark" : "light"); } catch (e) {}
+    });
+
+    // ─── Storage & cache section ────────────────────────────────
+    // Each entry maps to a backend target. `count` is how to compute the
+    // displayed count from the stats response, and `confirmHard` flags
+    // the destructive ones that need extra warning text.
+    const CACHE_ENTRIES = [
+      {
+        target: "workflow_state",
+        title: "Scraped articles & workflow state",
+        desc: "Clears every news article and the associated approvals, deliveries, and validations. Use before starting truly fresh.",
+        count: (s) => `${s.news_articles ?? 0} articles`,
+        confirmHard: true,
+      },
+      {
+        target: "activity_logs",
+        title: "Activity / system logs",
+        desc: "Old INFO and ERROR events stored in the database — safe to remove, doesn't affect any workflow.",
+        count: (s) => `${s.system_logs ?? 0} log rows`,
+      },
+      {
+        target: "scraping_sessions",
+        title: "Scraping session history",
+        desc: "Metadata about every past scrape attempt shown in the Scraping History tab.",
+        count: (s) => `${s.scraping_sessions ?? 0} sessions`,
+      },
+      {
+        target: "pycache",
+        title: "Python bytecode cache",
+        desc: "__pycache__ folders on disk. Safe to remove; Python regenerates them on next run.",
+        count: (s) => `${s.pycache_dirs ?? 0} dir${s.pycache_dirs === 1 ? '' : 's'} · ${s.pycache_kb ?? 0} KB`,
+      },
+      {
+        target: "vacuum_db",
+        title: "Compact the database",
+        desc: "Runs SQLite VACUUM to reclaim free pages. Recommended right after clearing a large cache above.",
+        count: (s) => `Current size: ${s.db_file_kb ?? '?'} KB`,
+        verb: "Run",
+      },
+    ];
+
+    function renderCacheList(stats) {
+      const root = document.getElementById("cacheList");
+      root.innerHTML = CACHE_ENTRIES.map(e => {
+        const c = e.count(stats);
+        const isZero = /\b0\b/.test(c) && e.target !== "vacuum_db";
+        return `
+          <div class="cache-item">
+            <div class="cache-meta">
+              <div class="cache-title">${escapeHtml(e.title)}</div>
+              <div class="cache-desc">${escapeHtml(e.desc)}</div>
+            </div>
+            <span class="cache-count ${isZero ? 'zero' : ''}">${escapeHtml(c)}</span>
+            <button class="btn-clear" data-target="${e.target}" data-hard="${e.confirmHard ? '1' : ''}" ${isZero ? 'disabled' : ''}>
+              ${escapeHtml(e.verb || 'Clear')}
+            </button>
+          </div>`;
+      }).join("");
+      root.querySelectorAll("button.btn-clear").forEach(btn => {
+        btn.addEventListener("click", () => clearCache(btn));
+      });
+      document.getElementById("cacheSection").style.display = "";
+    }
+
+    async function loadCacheStats() {
+      try {
+        const r = await fetch("/api/admin/cache/stats");
+        const j = await r.json();
+        if (j.status === "success") renderCacheList(j.stats);
+      } catch (e) { /* silent — cache UI is non-critical */ }
+    }
+
+    async function clearCache(btn) {
+      const target = btn.dataset.target;
+      const hard = btn.dataset.hard === "1";
+      const label = btn.closest('.cache-item').querySelector('.cache-title').textContent;
+      if (hard) {
+        const typed = await showConfirm(
+          `This will permanently delete "${label}" and cannot be undone.\nType OK below to confirm.`,
+          { title: 'Hard delete', danger: true, confirmLabel: 'Delete forever',
+            input: { pattern: 'OK', placeholder: 'Type OK' } }
+        );
+        if (typed !== 'OK') return;
+      } else {
+        const ok = await showConfirm(
+          `Clear "${label}"? This cannot be undone.`,
+          { title: 'Clear cache', danger: true, confirmLabel: 'Clear' }
+        );
+        if (!ok) return;
+      }
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = "…";
+      try {
+        const r = await fetch("/api/admin/cache/clear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ target }),
+        });
+        const j = await r.json();
+        if (j.status === "success") {
+          showBanner("success", j.message || "Cleared.");
+          loadCacheStats();
+        } else {
+          showBanner("error", "Clear failed — " + (j.message || "unknown error"));
+          btn.disabled = false;
+          btn.textContent = orig;
+        }
+      } catch (e) {
+        showBanner("error", "Request failed: " + e.message);
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+    loadCacheStats();
+    load();
+  </script>
+
+  <!-- Custom confirm modal (replaces native confirm() / prompt()) -->
+  <div id="confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-dialog" id="confirm-dialog">
+      <div class="confirm-head">
+        <span class="confirm-icon" id="confirm-icon" aria-hidden="true">?</span>
+        <h3 id="confirm-title">Are you sure?</h3>
+      </div>
+      <div class="confirm-body">
+        <div id="confirm-message"></div>
+        <input type="text" class="confirm-input" id="confirm-input" style="display:none;" autocomplete="off">
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="cancel" id="confirm-cancel">Cancel</button>
+        <button type="button" class="go" id="confirm-go">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Same Promise-based modal as the dashboard. Returns input value or true
+    // when confirmed, undefined when cancelled / esc / backdrop click.
+    function showConfirm(message, opts = {}) {
+      return new Promise((resolve) => {
+        const backdrop  = document.getElementById('confirm-backdrop');
+        const dialog    = document.getElementById('confirm-dialog');
+        const titleEl   = document.getElementById('confirm-title');
+        const messageEl = document.getElementById('confirm-message');
+        const inputEl   = document.getElementById('confirm-input');
+        const iconEl    = document.getElementById('confirm-icon');
+        const cancelBtn = document.getElementById('confirm-cancel');
+        const goBtn     = document.getElementById('confirm-go');
+
+        titleEl.textContent   = opts.title || 'Are you sure?';
+        messageEl.textContent = message || '';
+        iconEl.textContent    = opts.danger ? '!' : '?';
+        dialog.classList.toggle('danger', !!opts.danger);
+        cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+        goBtn.textContent     = opts.confirmLabel || (opts.danger ? 'Delete' : 'Confirm');
+
+        if (opts.input) {
+          inputEl.style.display = '';
+          inputEl.value = '';
+          inputEl.placeholder = opts.input.placeholder || '';
+          setTimeout(() => inputEl.focus(), 30);
+        } else {
+          inputEl.style.display = 'none';
+        }
+
+        const cleanup = () => {
+          backdrop.classList.remove('in');
+          setTimeout(() => { backdrop.style.display = 'none'; }, 200);
+          cancelBtn.onclick = goBtn.onclick = backdrop.onclick = null;
+          document.removeEventListener('keydown', onKey);
+        };
+        const onCancel = () => { cleanup(); resolve(undefined); };
+        const onGo = () => {
+          if (opts.input) {
+            const v = inputEl.value;
+            if (opts.input.pattern && v !== opts.input.pattern) {
+              inputEl.style.borderColor = '#e11d48';
+              inputEl.focus();
+              return;
+            }
+            cleanup(); resolve(v);
+          } else {
+            cleanup(); resolve(true);
+          }
+        };
+        const onKey = (e) => {
+          if (e.key === 'Escape') onCancel();
+          else if (e.key === 'Enter' && !opts.input) onGo();
+        };
+        cancelBtn.onclick = onCancel;
+        goBtn.onclick = onGo;
+        backdrop.onclick = (e) => { if (e.target === backdrop) onCancel(); };
+        document.addEventListener('keydown', onKey);
+
+        backdrop.style.display = 'flex';
+        requestAnimationFrame(() => backdrop.classList.add('in'));
+        setTimeout(() => goBtn.focus(), 50);
+      });
+    }
+  </script>
+
+  <!-- Sidebar user profile + logout -->
+  <script>
+    (function () {
+      function setAvatar(imgEl, initialEl, user) {
+        if (user && user.picture) {
+          imgEl.src = user.picture;
+          imgEl.style.display = '';
+          initialEl.style.display = 'none';
+        } else {
+          const ch = ((user && (user.email || user.name)) || '?').trim()[0] || '?';
+          initialEl.textContent = ch.toUpperCase();
+          imgEl.style.display = 'none';
+          initialEl.style.display = '';
+        }
+      }
+      async function loadCurrentUser() {
+        try {
+          const r = await fetch('/api/auth/me');
+          if (!r.ok) return;
+          const j = await r.json();
+          if (!j.authenticated) return;
+          const u = j.user || {};
+          document.getElementById('sb-user-name').textContent =
+            u.name || (u.email ? u.email.split('@')[0] : 'Signed in');
+          document.getElementById('sb-user-email').textContent = u.email || '—';
+          setAvatar(
+            document.getElementById('sb-avatar'),
+            document.getElementById('sb-avatar-initial'),
+            u
+          );
+          document.getElementById('sb-user').style.display = '';
+        } catch (e) { /* leave hidden */ }
+      }
+      async function handleLogout() {
+        try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        try {
+          if (window.firebase && firebase.auth) { await firebase.auth().signOut(); }
+        } catch (e) {}
+        window.location.href = '/login';
+      }
+      document.addEventListener('DOMContentLoaded', function () {
+        loadCurrentUser();
+        const lo = document.getElementById('sb-logout');
+        if (lo) lo.addEventListener('click', handleLogout);
+      });
+    })();
+  </script>
+</body>
+</html>

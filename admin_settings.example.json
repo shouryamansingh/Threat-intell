@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "Template for admin_settings.json, which is gitignored because the real file",
+    "holds the sender's Gmail app password and live recipient addresses.",
+    "",
+    "Local setup:  cp admin_settings.example.json admin_settings.json",
+    "              then edit it, or set the values in the /admin panel.",
+    "",
+    "Server setup: leave SENDER_PASSWORD and the addresses blank here and supply",
+    "              them as environment variables instead (TI_SENDER_PASSWORD,",
+    "              TI_SENDER_EMAIL, TI_MANAGER_EMAIL, TI_SOC_EMAIL, ...) so no",
+    "              credential is ever written to disk in the project folder.",
+    "              Environment variables take precedence over this file."
+  ],
+
+  "SENDER_EMAIL": "",
+  "SENDER_PASSWORD": "",
+  "MANAGER_EMAIL": "",
+  "VALIDATOR_EMAIL": "",
+  "SOC_EMAIL": "",
+  "SOC_EMAIL_CC": [],
+
+  "SMTP_SERVER": "smtp.gmail.com",
+  "SMTP_PORT": 587,
+
+  "COMPANY_NAME": "Your Company",
+  "EMAIL_SUBJECT_MANAGER": "Weekly Threat Intelligence Report - Approval Required",
+  "EMAIL_SUBJECT_SOC": "Weekly Cyber Watch - Action Required",
+
+  "MAX_NEWS_TO_MANAGER": 10,
+  "MAX_NEWS_PER_SOC_EMAIL": 10,
+
+  "SCRAPING_DAY": "monday",
+  "SCRAPING_HOUR": 10,
+  "SCRAPING_MINUTE": 0,
+  "SOC_DELIVERY_DAYS": ["tuesday"],
+  "SOC_DELIVERY_HOUR": 11,
+  "SOC_DELIVERY_MINUTE": 0
+}

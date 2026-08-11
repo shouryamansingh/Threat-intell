@@ -1,0 +1,1612 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Users &amp; Access · Weekly Cyber Watch</title>
+  <link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+  <style>
+    /* ══ Design tokens ═══════════════════════════════════════════
+       Privilege is expressed as an intensity ladder within one hue
+       family (neutral → light blue → indigo), not as separate colours.
+       Everything else keeps colour tied to meaning. */
+    :root {
+      --accent:      #2F6BFF;
+      --accent-dk:   #1D4FD7;
+      --accent-tint: #EEF3FF;
+      --accent-line: #C9D9FE;
+
+      --ink:    #0F1729;
+      --ink-2:  #2C3648;
+      --ink-3:  #4A5568;
+      --ink-4:  #6B7590;
+      --ink-5:  #98A1B5;
+
+      --line:      #E3E7EE;
+      --line-soft: #EEF1F6;
+      --surface:   #FFFFFF;
+      --raised:    #FFFFFF;
+      --canvas:    #F4F6F9;
+      --fill:      #F7F9FC;
+
+      --ok:     #10794F;
+      --ok-dot: #15A366;
+      --ok-bg:  #E9F8F0;
+      --warn:     #9A5B0B;
+      --warn-dot: #E39A21;
+      --warn-bg:  #FDF5E7;
+      --danger:     #AF2A1E;
+      --danger-dot: #E04E3F;
+      --danger-bg:  #FDEEEC;
+
+      --shadow-sm: 0 1px 2px rgba(15,23,41,.04), 0 1px 3px rgba(15,23,41,.05);
+      --shadow-md: 0 4px 14px rgba(15,23,41,.07), 0 1px 3px rgba(15,23,41,.04);
+      --shadow-lg: 0 18px 48px rgba(15,23,41,.20);
+
+      --r-card: 11px;
+      --r-ctl: 7px;
+
+      --sidebar-w-collapsed: 60px;
+      --sidebar-w-expanded: 220px;
+      --brand-blue: var(--accent);
+      --brand-dark: var(--ink);
+      --brand-tint: var(--accent-tint);
+      --slate-100: var(--line-soft);
+      --slate-200: var(--line);
+      --slate-500: var(--ink-4);
+      --slate-600: var(--ink-3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0; background: var(--canvas); color: var(--ink);
+      min-height: 100vh; -webkit-font-smoothing: antialiased;
+      padding-left: var(--sidebar-w-collapsed);
+      font-size: 13.5px; line-height: 1.5;
+    }
+    .mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    /* ─── Sidebar ──────────────────────────────────────────────── */
+    .app-sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w-collapsed); background: var(--surface);
+      border-right: 1px solid var(--line); z-index: 1050;
+      display: flex; flex-direction: column; padding: 12px 8px; overflow: hidden;
+      transition: width .26s cubic-bezier(.25,.1,.25,1), box-shadow .26s;
+    }
+    .app-sidebar:hover { width: var(--sidebar-w-expanded); box-shadow: 6px 0 28px rgba(15,23,41,.09); }
+    .app-sidebar .sb-logo {
+      display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px;
+      border-bottom: 1px solid var(--line-soft); margin-bottom: 10px; text-decoration: none;
+    }
+    .app-sidebar .sb-logo img { height: 26px; width: 26px; min-width: 26px; }
+    .app-sidebar .sb-logo .sb-logo-text {
+      font-size: 11.5px; font-weight: 650; letter-spacing: .08em; color: var(--ink);
+      text-transform: uppercase; white-space: nowrap;
+      opacity: 0; transform: translateX(-6px); transition: opacity .22s, transform .22s;
+    }
+    .app-sidebar:hover .sb-logo .sb-logo-text { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-links { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; overflow-y: auto; }
+    .app-sidebar .sb-link {
+      display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+      border: none; background: transparent; color: var(--ink-3); border-radius: var(--r-ctl);
+      font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer;
+      font-family: inherit; text-align: left; white-space: nowrap; position: relative;
+      transition: background .15s, color .15s;
+    }
+    .app-sidebar .sb-link:hover { background: var(--fill); color: var(--ink); }
+    .app-sidebar .sb-link.active {
+      background: var(--accent-tint); color: var(--accent-dk); font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+    .app-sidebar .sb-link .sb-ico {
+      width: 28px; min-width: 28px; height: 26px;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+    }
+    .app-sidebar .sb-link .sb-label {
+      opacity: 0; transform: translateX(-6px); transition: opacity .25s, transform .25s;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .app-sidebar:hover .sb-link .sb-label { opacity: 1; transform: translateX(0); }
+    .sb-badge {
+      position: absolute; top: 6px; left: 30px; min-width: 7px; height: 7px;
+      border-radius: 999px; background: var(--danger-dot); display: none;
+    }
+    .sb-badge.show { display: block; }
+    .app-sidebar:hover .sb-badge {
+      position: static; margin-left: auto; height: 17px; min-width: 17px; padding: 0 5px;
+      color: #fff; font-size: 10.5px; font-weight: 650; border-radius: 5px;
+      display: none; align-items: center; justify-content: center;
+    }
+    .app-sidebar:hover .sb-badge.show { display: inline-flex; }
+    .app-sidebar .sb-foot {
+      flex-shrink: 0; border-top: 1px solid var(--line-soft);
+      padding-top: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .app-sidebar .sb-user {
+      display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+      border-radius: var(--r-ctl); text-decoration: none; transition: background .15s;
+    }
+    .app-sidebar a.sb-user:hover { background: var(--fill); }
+    .app-sidebar .sb-avatar, .app-sidebar .sb-avatar-initial {
+      width: 26px; min-width: 26px; height: 26px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 650; background: var(--accent-tint); color: var(--accent-dk);
+      border: 1px solid var(--accent-line); object-fit: cover; flex-shrink: 0;
+    }
+    .app-sidebar .sb-user-meta {
+      min-width: 0; flex: 1; opacity: 0; transform: translateX(-6px);
+      transition: opacity .25s, transform .25s;
+    }
+    .app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
+    .app-sidebar .sb-user-meta .name {
+      font-size: 12px; font-weight: 600; color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-user-meta .email {
+      font-size: 11px; color: var(--ink-4);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-sidebar .sb-logout { color: var(--danger); }
+    .app-sidebar .sb-logout:hover { background: var(--danger-bg); }
+    @media (max-width: 768px) { .app-sidebar { display: none; } body { padding-left: 0; } }
+
+    /* ─── Top bar ──────────────────────────────────────────────── */
+    header.app {
+      background: var(--surface); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 40;
+    }
+    header.app .inner {
+      max-width: 74rem; margin: 0 auto; padding: 0 30px;
+      display: flex; align-items: center; height: 58px; gap: 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .brand img { height: 24px; width: auto; display: block; }
+    .brand .divider { width: 1px; height: 26px; background: var(--line); }
+    .brand .title { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.2; letter-spacing: -.005em; }
+    .brand .subtitle { font-size: 11.5px; color: var(--ink-4); line-height: 1.3; }
+
+    .theme-toggle {
+      width: 54px; height: 28px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--fill); cursor: pointer; padding: 2px; display: inline-flex; align-items: center;
+    }
+    .theme-toggle .tt-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+    .theme-toggle .tt-slot {
+      width: 22px; height: 22px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: transform .25s, background .25s, color .25s;
+    }
+    .theme-toggle .tt-active { background: var(--surface); color: var(--ink-2); transform: translateX(24px); box-shadow: var(--shadow-sm); }
+    .theme-toggle .tt-muted { background: transparent; color: var(--ink-5); transform: translateX(-24px); }
+    .theme-toggle i { font-size: 12px; }
+    .theme-toggle .tt-active .sun { display: inline-block; }
+    .theme-toggle .tt-active .moon { display: none; }
+    .theme-toggle .tt-muted .moon { display: inline-block; }
+    .theme-toggle .tt-muted .sun { display: none; }
+    html.dark .theme-toggle .tt-active { transform: translateX(0); }
+    html.dark .theme-toggle .tt-muted { transform: translateX(0); }
+    html.dark .theme-toggle .tt-active .sun { display: none; }
+    html.dark .theme-toggle .tt-active .moon { display: inline-block; }
+    html.dark .theme-toggle .tt-muted .moon { display: none; }
+    html.dark .theme-toggle .tt-muted .sun { display: inline-block; }
+
+    /* ─── Page ─────────────────────────────────────────────────── */
+    main { max-width: 74rem; margin: 0 auto; padding: 30px 30px 90px; }
+    .page-head { margin-bottom: 18px; }
+    .eyebrow {
+      font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--accent-dk); margin-bottom: 7px;
+    }
+    .page-head h1 {
+      margin: 0 0 6px; font-size: 24px; font-weight: 650;
+      letter-spacing: -0.026em; color: var(--ink);
+    }
+    .page-head p { margin: 0; color: var(--ink-4); font-size: 13.5px; max-width: 82ch; }
+
+    /* Overview card: figures plus a real distribution bar. */
+    .overview {
+      background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-card);
+      box-shadow: var(--shadow-sm); margin-bottom: 22px; overflow: hidden;
+    }
+    .figs { display: flex; flex-wrap: wrap; }
+    .fig { flex: 1 1 150px; padding: 16px 20px; border-right: 1px solid var(--line-soft); }
+    .fig:last-child { border-right: none; }
+    .fig-k {
+      display: block; font-size: 11.5px; font-weight: 550; color: var(--ink-4);
+      margin-bottom: 5px; letter-spacing: .01em;
+    }
+    .fig-v {
+      font-size: 26px; font-weight: 650; color: var(--ink); line-height: 1;
+      font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    }
+    .fig.alert { background: var(--danger-bg); }
+    .fig.alert .fig-v, .fig.alert .fig-k { color: var(--danger); }
+    .fig-link { display: none; margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--danger); text-decoration: none; }
+    .fig.alert .fig-link { display: inline; }
+    .fig-link:hover { text-decoration: underline; }
+
+    .mix { border-top: 1px solid var(--line-soft); padding: 13px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .mix-k { font-size: 11.5px; font-weight: 550; color: var(--ink-4); white-space: nowrap; }
+    .mix-bar {
+      flex: 1 1 200px; min-width: 160px; height: 8px; border-radius: 999px;
+      background: var(--line-soft); overflow: hidden; display: flex;
+    }
+    .mix-bar span { height: 100%; display: block; }
+    .mix-seg-t1 { background: #C3CAD9; }
+    .mix-seg-t2 { background: #7FA0F5; }
+    .mix-seg-t3 { background: #24408F; }
+    .mix-legend { display: flex; gap: 15px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+    .mix-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+
+    /* ─── Panels ───────────────────────────────────────────────── */
+    .panel {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--r-card); margin-bottom: 22px; overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .panel.attn { border-color: var(--danger-dot); box-shadow: 0 0 0 3px rgba(224,78,63,.08), var(--shadow-sm); }
+    .panel-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 15px 20px; border-bottom: 1px solid var(--line);
+      background: linear-gradient(var(--fill), var(--fill));
+    }
+    .panel-head .titles { min-width: 0; }
+    .panel-head h2 {
+      margin: 0; font-size: 14.5px; font-weight: 650; color: var(--ink);
+      letter-spacing: -.01em; display: flex; align-items: center; gap: 9px;
+    }
+    .panel-sub { font-size: 12.5px; color: var(--ink-4); margin-top: 4px; }
+    .panel-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .panel-body { padding: 20px; }
+    .count {
+      font-size: 11.5px; font-weight: 650; color: var(--ink-4);
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 5px; padding: 1px 7px; font-variant-numeric: tabular-nums;
+    }
+    .count.attn { color: #fff; background: var(--danger-dot); border-color: var(--danger-dot); }
+    .lock-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: .02em;
+      color: var(--warn); background: var(--warn-bg);
+      border: 1px solid rgba(227,154,33,.35); border-radius: 5px; padding: 3px 8px;
+    }
+
+    /* ─── Tables ───────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table.grid { width: 100%; border-collapse: collapse; }
+    table.grid thead th {
+      text-align: left; padding: 10px 20px; background: var(--fill);
+      font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink-4); border-bottom: 1px solid var(--line); white-space: nowrap;
+    }
+    table.grid tbody td {
+      padding: 13px 20px; border-bottom: 1px solid var(--line-soft);
+      vertical-align: middle; font-size: 13px;
+    }
+    table.grid tbody tr:last-child td { border-bottom: none; }
+    table.grid tbody tr { transition: background .12s; }
+    table.grid tbody tr:hover { background: var(--fill); }
+    table.grid tr.is-inactive td { background: repeating-linear-gradient(0deg, transparent, transparent 100%); opacity: .68; }
+
+    #usersTable { min-width: 980px; }
+    #usersTable th:nth-child(1), #usersTable td:nth-child(1) { min-width: 306px; }
+    #usersTable th:nth-child(2), #usersTable td:nth-child(2) { min-width: 122px; }
+    #usersTable th:nth-child(3), #usersTable td:nth-child(3) { min-width: 200px; }
+    #usersTable th:nth-child(4), #usersTable td:nth-child(4) { min-width: 108px; }
+    #usersTable th:nth-child(5), #usersTable td:nth-child(5) { min-width: 214px; white-space: nowrap; }
+
+    /* ─── Access requests ──────────────────────────────────────── */
+    /* A row per request rather than a table: two of the four columns held
+       nothing but chips, and the table needed 800px before it stopped
+       scrolling sideways on the very screen an approval gets read on. */
+    .req {
+      display: grid; align-items: center; gap: 10px 16px; padding: 14px 20px 15px;
+      grid-template-columns: minmax(210px, 1.3fr) auto minmax(148px, auto);
+      grid-template-areas: "who facts actions" "reason reason reason";
+      border-bottom: 1px solid var(--line-soft); position: relative;
+      transition: background .12s;
+    }
+    .req:last-child { border-bottom: none; }
+    .req:hover { background: var(--fill); }
+    /* The rail carries how long this person has been waiting, so a stale
+       request announces itself before you have read a word of the row. */
+    .req::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--accent);
+    }
+    .req.age-warn::before { background: var(--warn-dot); }
+    .req.age-late::before { background: var(--danger-dot); }
+    .req-who { grid-area: who; display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .req-facts { grid-area: facts; display: flex; flex-wrap: wrap; gap: 7px; }
+    .req .actions { grid-area: actions; }
+    .req-reason {
+      grid-area: reason; margin-left: 46px; padding: 7px 11px;
+      font-size: 12px; color: var(--ink-3); line-height: 1.5;
+      background: var(--fill); border: 1px solid var(--line-soft);
+      border-left: 2px solid var(--line); border-radius: 0 6px 6px 0;
+    }
+    .req:hover .req-reason { background: var(--surface); }
+    .req-reason .k { margin-right: 5px; font-weight: 600; color: var(--ink-5); }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+      font-size: 11.5px; font-weight: 550; color: var(--ink-3);
+      background: var(--fill); border: 1px solid var(--line);
+      border-radius: 999px; padding: 3px 10px;
+    }
+    .chip i { font-size: 10px; color: var(--ink-5); }
+    .chip.ok   { color: var(--ok);     background: var(--ok-bg);     border-color: rgba(21,163,102,.28); }
+    .chip.warn { color: var(--warn);   background: var(--warn-bg);   border-color: rgba(227,154,33,.35); }
+    .chip.bad  { color: var(--danger); background: var(--danger-bg); border-color: rgba(224,78,63,.3); }
+    .chip.ok i { color: var(--ok-dot); }
+    .chip.warn i { color: var(--warn-dot); }
+    .chip.bad i { color: var(--danger-dot); }
+
+    @media (max-width: 900px) {
+      .req { grid-template-columns: 1fr; grid-template-areas: "who" "facts" "reason" "actions"; }
+      .req .actions { justify-content: flex-start; }
+      .req-reason { margin-left: 0; }
+    }
+
+    /* Decided requests. The audit log below needs a provider-verified identity,
+       so without this a password admin can never see what was already settled. */
+    .hist-toggle {
+      display: flex; align-items: center; gap: 9px; width: 100%;
+      padding: 11px 20px; background: var(--fill); border: none;
+      border-top: 1px solid var(--line); cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      color: var(--ink-3); text-align: left;
+    }
+    .hist-toggle:hover { color: var(--ink); }
+    .hist-toggle .caret { font-size: 10px; color: var(--ink-5); transition: transform .18s; }
+    .hist-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
+    .hist-row {
+      display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+      padding: 10px 20px 10px 32px; border-top: 1px solid var(--line-soft); font-size: 12.5px;
+    }
+    .hist-row .who { font-weight: 600; color: var(--ink-2); overflow-wrap: anywhere; }
+    .hist-row .detail { color: var(--ink-4); font-size: 12px; }
+    .hist-row .meta { margin-left: auto; font-size: 11.5px; color: var(--ink-5); white-space: nowrap; }
+
+    .member { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    /* Deterministic muted tone per identity — helps you find a row by shape,
+       and stays desaturated enough not to read as decoration. */
+    .avatar {
+      width: 34px; height: 34px; min-width: 34px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11.5px; font-weight: 650; letter-spacing: .02em; border: 1px solid;
+    }
+    .m-name { font-weight: 600; color: var(--ink); font-size: 13.5px; line-height: 1.35; letter-spacing: -.005em; }
+    .m-mail { font-size: 12.5px; color: var(--ink-4); line-height: 1.35; }
+    .m-meta { font-size: 11.5px; color: var(--ink-5); margin-top: 3px; }
+    .m-meta .sep { padding: 0 6px; color: var(--line); }
+    .self-tag {
+      font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase;
+      color: var(--accent-dk); background: var(--accent-tint); border: 1px solid var(--accent-line);
+      border-radius: 4px; padding: 1px 5px; margin-left: 8px; vertical-align: 1.5px;
+    }
+    .subtle { color: var(--ink-5); }
+    .nowrap { white-space: nowrap; }
+
+    /* Privilege ladder: neutral → light blue → indigo. */
+    .rchip {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12.5px; font-weight: 600; border-radius: 6px;
+      padding: 5px 11px; border: 1px solid; white-space: nowrap;
+    }
+    .rchip.t1 { background: #F2F4F8; color: var(--ink-3); border-color: var(--line); }
+    .rchip.t2 { background: var(--accent-tint); color: var(--accent-dk); border-color: var(--accent-line); }
+    .rchip.t3 { background: #1B2E5C; color: #F2F5FC; border-color: #1B2E5C; }
+    select.sel.t1 { background: #F2F4F8; }
+    select.sel.t2 { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-dk); font-weight: 600; }
+    select.sel.t3 { background: #E4EAF7; border-color: #A9BEEA; color: #1B2E5C; font-weight: 650; }
+    .note { font-size: 11.5px; color: var(--ink-5); margin-top: 5px; line-height: 1.45; }
+    .note code {
+      font-family: "Geist Mono", ui-monospace, monospace; font-size: 10.5px;
+      background: var(--fill); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px;
+    }
+
+    .status { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 550; white-space: nowrap; }
+    .status .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ink-5); box-shadow: 0 0 0 3px rgba(152,161,181,.18); }
+    .status.on { color: var(--ok); }
+    .status.on .dot { background: var(--ok-dot); box-shadow: 0 0 0 3px rgba(21,163,102,.16); }
+    .status.off { color: var(--ink-4); }
+    .method { font-size: 12.5px; color: var(--ink-3); display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+    .method i { font-size: 11px; color: var(--ink-5); width: 12px; text-align: center; }
+
+    /* ─── Controls ─────────────────────────────────────────────── */
+    label.lbl, span.lbl { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+    select.sel, input.inp, textarea.inp {
+      font-family: inherit; font-size: 13px; padding: 7px 10px;
+      border-radius: var(--r-ctl); border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink); width: 100%;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    select.sel { cursor: pointer; }
+    select.sel:focus, input.inp:focus, textarea.inp:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,107,255,.15);
+    }
+    select.sel:disabled, input.inp:disabled { opacity: .6; }
+    .hint { font-size: 11.5px; color: var(--ink-5); margin-top: 6px; line-height: 1.45; }
+    .search { position: relative; }
+    .search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--ink-5); }
+    .search input { padding-left: 30px; width: 210px; }
+
+    .btn {
+      font-family: inherit; font-size: 12.5px; font-weight: 600;
+      padding: 7px 13px; border-radius: var(--r-ctl); cursor: pointer;
+      border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+      display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+      box-shadow: var(--shadow-sm);
+      transition: background .14s, color .14s, border-color .14s, box-shadow .14s;
+    }
+    .btn:hover { background: var(--fill); color: var(--ink); border-color: #D2D8E3; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-dk); border-color: var(--accent-dk); color: #fff; }
+    .btn.danger { color: var(--danger); border-color: rgba(175,42,30,.28); }
+    .btn.danger:hover { background: var(--danger-bg); border-color: rgba(175,42,30,.5); color: var(--danger); }
+    .link-btn {
+      background: none; border: none; padding: 3px 0; font-family: inherit;
+      font-size: 12.5px; font-weight: 550; color: var(--ink-3); cursor: pointer;
+    }
+    .link-btn:hover { color: var(--accent-dk); text-decoration: underline; }
+    .link-btn.destructive:hover { color: var(--danger); }
+    .link-btn:disabled { color: var(--ink-5); cursor: not-allowed; text-decoration: none; opacity: .7; }
+    .actions { display: flex; align-items: center; gap: 13px; justify-content: flex-end; }
+    .actions .vr { width: 1px; height: 12px; background: var(--line); }
+
+    /* Segmented control for the audit views */
+    .seg { display: inline-flex; background: var(--fill); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+    .seg button {
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-4);
+      background: transparent; border: none; padding: 5px 13px; border-radius: 6px; cursor: pointer;
+      transition: background .14s, color .14s, box-shadow .14s;
+    }
+    .seg button:hover { color: var(--ink-2); }
+    .seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+    /* ─── Empty / locked states ────────────────────────────────── */
+    .empty { padding: 40px 20px; text-align: center; }
+    .empty .t { font-size: 14px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+    .empty .d { font-size: 12.5px; color: var(--ink-4); max-width: 52ch; margin: 0 auto; line-height: 1.55; }
+    .locked { padding: 34px 24px; display: flex; gap: 15px; align-items: flex-start; }
+    .locked-ico {
+      width: 34px; height: 34px; min-width: 34px; border-radius: 9px;
+      background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(227,154,33,.3);
+      display: flex; align-items: center; justify-content: center; font-size: 13px;
+    }
+    .locked .t { font-size: 13.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+    .locked .d { font-size: 12.5px; color: var(--ink-4); line-height: 1.6; max-width: 70ch; }
+
+    /* ─── Audit timeline ───────────────────────────────────────── */
+    .day-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 20px; background: var(--fill);
+      border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+      font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-4);
+    }
+    .day-head:first-child { border-top: none; }
+    .day-head .n { margin-left: auto; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--ink-5); }
+    .ev { display: flex; gap: 0; padding: 0 20px; }
+    .ev-rail { width: 26px; min-width: 26px; position: relative; }
+    .ev-rail::before {
+      content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px; background: var(--line);
+    }
+    .ev:first-of-type .ev-rail::before { top: 15px; }
+    .ev:last-of-type .ev-rail::before { bottom: calc(100% - 15px); }
+    .ev-dot {
+      position: absolute; left: 0; top: 13px; width: 11px; height: 11px; border-radius: 999px;
+      background: var(--ink-5); border: 2px solid var(--surface);
+      box-shadow: 0 0 0 2px var(--line);
+    }
+    .ev.k-ok  .ev-dot { background: var(--ok-dot);     box-shadow: 0 0 0 2px rgba(21,163,102,.28); }
+    .ev.k-warn .ev-dot { background: var(--warn-dot);  box-shadow: 0 0 0 2px rgba(227,154,33,.3); }
+    .ev.k-bad .ev-dot { background: var(--danger-dot); box-shadow: 0 0 0 2px rgba(224,78,63,.28); }
+    .ev.k-info .ev-dot { background: var(--accent);    box-shadow: 0 0 0 2px rgba(47,107,255,.25); }
+    .ev-body { flex: 1; padding: 10px 0 12px 10px; min-width: 0; }
+    .ev-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .ev-kind { font-size: 12.5px; font-weight: 650; color: var(--ink); letter-spacing: -.005em; }
+    .ev-time { font-size: 11px; color: var(--ink-5); font-variant-numeric: tabular-nums; }
+    .ev-msg { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.55; overflow-wrap: anywhere; }
+    .ev-msg b { font-weight: 600; color: var(--ink-2); }
+
+    /* ─── Permission matrix ────────────────────────────────────── */
+    #matrix { width: 100%; border-collapse: collapse; }
+    #matrix th, #matrix td { border-bottom: 1px solid var(--line-soft); padding: 12px 18px; }
+    #matrix thead th { background: var(--fill); border-bottom: 1px solid var(--line); text-align: center; vertical-align: top; }
+    #matrix thead th:first-child { text-align: left; width: 38%; vertical-align: bottom; font-size: 10.5px;
+      font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); }
+    #matrix .r-desc { font-size: 11.5px; font-weight: 400; color: var(--ink-4); margin-top: 7px;
+      line-height: 1.5; text-transform: none; letter-spacing: 0; }
+    #matrix tbody td { text-align: center; }
+    #matrix tbody td:first-child { text-align: left; color: var(--ink-2); font-size: 13px; }
+    #matrix tbody tr:hover { background: var(--fill); }
+    #matrix tbody tr:last-child td { border-bottom: none; }
+    #matrix col.hl { background: rgba(47,107,255,.035); }
+    .mark-yes { color: var(--ok); font-size: 12px; }
+    .mark-no { color: var(--ink-5); opacity: .45; }
+
+    /* ─── Notice ───────────────────────────────────────────────── */
+    #noticeWrap { position: sticky; top: 58px; z-index: 35; }
+    .notice {
+      display: none; align-items: center; gap: 11px;
+      padding: 11px 15px; border-radius: var(--r-ctl); margin-bottom: 18px;
+      font-size: 13px; border: 1px solid var(--line);
+      background: var(--surface); color: var(--ink-2); box-shadow: var(--shadow-md);
+    }
+    .notice.show { display: flex; }
+    .notice .bar { width: 3px; align-self: stretch; border-radius: 2px; background: var(--ink-5); }
+    .notice.success { background: var(--ok-bg); border-color: rgba(21,163,102,.3); color: var(--ok); }
+    .notice.success .bar { background: var(--ok-dot); }
+    .notice.error { background: var(--danger-bg); border-color: rgba(224,78,63,.32); color: var(--danger); }
+    .notice.error .bar { background: var(--danger-dot); }
+    .notice.info { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-dk); }
+    .notice.info .bar { background: var(--accent); }
+    .notice .x { margin-left: auto; background: none; border: none; cursor: pointer; color: inherit; opacity: .6; font-size: 12px; }
+    .notice .x:hover { opacity: 1; }
+
+    /* ─── Modal ────────────────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(15,23,41,.52);
+      display: none; align-items: flex-start; justify-content: center; z-index: 2000;
+      padding: 70px 20px 20px; overflow-y: auto;
+    }
+    .overlay.show { display: flex; }
+    .modal {
+      background: var(--surface); border-radius: 13px; border: 1px solid var(--line);
+      width: min(478px, 100%); box-shadow: var(--shadow-lg);
+    }
+    .modal-head { padding: 20px 22px 0; }
+    .modal-head h3 { margin: 0; font-size: 16px; font-weight: 650; color: var(--ink); letter-spacing: -.014em; }
+    .modal-head .sub { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-4); line-height: 1.55; }
+    .modal-body { padding: 17px 22px 19px; }
+    .modal-body p { margin: 0 0 12px; font-size: 13px; color: var(--ink-3); line-height: 1.55; }
+    .modal-body p:last-child { margin-bottom: 0; }
+    .modal-body .field + .field { margin-top: 15px; }
+    .modal-err {
+      display: none; margin-top: 15px; padding: 10px 12px; border-radius: var(--r-ctl);
+      background: var(--danger-bg); border: 1px solid rgba(224,78,63,.32); color: var(--danger); font-size: 12.5px;
+    }
+    .modal-err.show { display: block; }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 9px; align-items: center;
+      padding: 14px 22px; background: var(--fill); border-top: 1px solid var(--line);
+      border-radius: 0 0 13px 13px;
+    }
+    .modal-foot .spacer { margin-right: auto; }
+    .kv { font-size: 12.5px; color: var(--ink-3); }
+    .kv b { font-weight: 600; color: var(--ink); }
+    .id-card {
+      display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+      background: var(--fill); border: 1px solid var(--line); border-radius: var(--r-ctl); margin-bottom: 16px;
+    }
+
+    /* ─── Dark ─────────────────────────────────────────────────── */
+    html.dark {
+      color-scheme: dark;
+      --accent:      #5C8BFF;
+      --accent-dk:   #86A9FF;
+      --accent-tint: #17233C;
+      --accent-line: #2C4272;
+      --ink:    #E9EDF5;
+      --ink-2:  #C9D1E0;
+      --ink-3:  #A6B0C4;
+      --ink-4:  #8892A8;
+      --ink-5:  #69738A;
+      --line:      #242D3F;
+      --line-soft: #1C2433;
+      --surface:   #111825;
+      --raised:    #131B2A;
+      --canvas:    #0A0E17;
+      --fill:      #161E2D;
+      --ok: #43D699; --ok-dot: #2BB877; --ok-bg: #10231C;
+      --warn: #F3B95F; --warn-dot: #D99A2B; --warn-bg: #241C0F;
+      --danger: #FF8A80; --danger-dot: #E2544A; --danger-bg: #261414;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+      --shadow-md: 0 4px 14px rgba(0,0,0,.35);
+      --shadow-lg: 0 18px 48px rgba(0,0,0,.55);
+    }
+    /* Wordmark only — flattening it to white gives the reverse-logo variant.
+       The sidebar badge may be a coloured gradient tile; filtering that would
+       erase the glyph inside it, so it is deliberately excluded. */
+    html.dark .brand img { filter: brightness(0) invert(.92); }
+    html.dark .theme-toggle .tt-active { background: #242D3F; color: var(--ink); }
+    html.dark .rchip.t1 { background: #1B2433; color: var(--ink-3); }
+    html.dark .rchip.t3 { background: #2C4272; color: #E9EDF5; border-color: #38508A; }
+    html.dark select.sel.t1 { background: #1B2433; }
+    html.dark select.sel.t3 { background: #1E2C4C; border-color: #38508A; color: #CFDBF5; }
+    html.dark .mix-seg-t1 { background: #3D4759; }
+    html.dark .mix-seg-t2 { background: #4A6FCB; }
+    html.dark .mix-seg-t3 { background: #8FAEF7; }
+    html.dark .btn.primary { color: #0A0E17; }
+    html.dark .btn.primary:hover { color: #0A0E17; }
+    html.dark .ev-dot { border-color: var(--surface); }
+    html.dark #matrix col.hl { background: rgba(92,139,255,.05); }
+    html.dark .panel.attn { box-shadow: 0 0 0 3px rgba(226,84,74,.12), var(--shadow-sm); }
+  </style>
+</head>
+<body>
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+    <a class="sb-logo" href="/" title="Weekly Cyber Watch">
+      <img src="{{ brand.icon }}" alt="">
+      <span class="sb-logo-text">Cyber Watch</span>
+    </a>
+    <nav class="sb-links">
+      <a class="sb-link" href="/" title="Dashboard">
+        <span class="sb-ico"><i class="fas fa-house"></i></span>
+        <span class="sb-label">Dashboard</span>
+      </a>
+      <a class="sb-link" href="/admin" title="Admin Settings">
+        <span class="sb-ico"><i class="fas fa-sliders"></i></span>
+        <span class="sb-label">Admin</span>
+      </a>
+      <a class="sb-link active" href="/admin/users" title="Users &amp; Access">
+        <span class="sb-ico"><i class="fas fa-users"></i></span>
+        <span class="sb-label">Users &amp; Access</span>
+        <span class="sb-badge" id="sb-pending-badge"></span>
+      </a>
+      <a class="sb-link" href="/?refresh=1" title="Refresh project">
+        <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
+        <span class="sb-label">Refresh Project</span>
+      </a>
+      <a class="sb-link" href="/settings" title="My account &amp; password">
+        <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
+        <span class="sb-label">My Account</span>
+      </a>
+    </nav>
+    <div class="sb-foot">
+      <a class="sb-user" id="sb-user" href="/settings" title="My account" style="display:none;">
+        <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
+        <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
+        <div class="sb-user-meta">
+          <div class="name" id="sb-user-name">Signed in</div>
+          <div class="email" id="sb-user-email">—</div>
+        </div>
+      </a>
+      <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
+        <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
+        <span class="sb-label">Sign out</span>
+      </button>
+    </div>
+  </aside>
+
+  <header class="app">
+    <div class="inner">
+      <a class="brand" href="/">
+        <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+        <div class="divider" aria-hidden="true"></div>
+        <div>
+          <div class="title">Weekly Cyber Watch</div>
+          <div class="subtitle">IT Internal Audit</div>
+        </div>
+      </a>
+      <button type="button" id="theme-toggle" class="theme-toggle" style="margin-left:auto;"
+              role="switch" aria-label="Toggle light / dark theme" title="Toggle theme">
+        <span class="tt-row">
+          <span class="tt-active tt-slot" aria-hidden="true">
+            <i class="fas fa-moon moon"></i><i class="fas fa-sun sun"></i>
+          </span>
+          <span class="tt-muted tt-slot" aria-hidden="true">
+            <i class="fas fa-sun sun"></i><i class="fas fa-moon moon"></i>
+          </span>
+        </span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="page-head">
+      <div class="eyebrow">Access control</div>
+      <h1>Users &amp; access</h1>
+      <p>Accounts that can sign in to this platform, and the role governing what each one may do.
+         Role and status changes are enforced from the user's next request onward.</p>
+    </div>
+
+    <div class="overview">
+      <div class="figs">
+        <div class="fig"><span class="fig-k">Accounts</span><span class="fig-v" id="statTotal">—</span></div>
+        <div class="fig"><span class="fig-k">Enabled</span><span class="fig-v" id="statActive">—</span></div>
+        <div class="fig"><span class="fig-k">Administrators</span><span class="fig-v" id="statAdmins">—</span></div>
+        <div class="fig" id="statPendingCard">
+          <span class="fig-k">Pending requests</span>
+          <span class="fig-v" id="statPending">—</span><a class="fig-link" href="#requests">Review</a>
+        </div>
+      </div>
+      <div class="mix">
+        <span class="mix-k">Privilege distribution</span>
+        <span class="mix-bar" id="mixBar"></span>
+        <span class="mix-legend" id="mixLegend"></span>
+      </div>
+    </div>
+
+    <div id="noticeWrap"><div id="notice" class="notice"></div></div>
+
+    <!-- ─── Access requests ─────────────────────────────────────── -->
+    <section class="panel" id="requests">
+      <header class="panel-head">
+        <div class="titles">
+          <h2>Access requests <span class="count" id="pendingPill">0</span></h2>
+          <div class="panel-sub">Sign-in attempts from people with no account. Nothing is granted until a request is approved.</div>
+        </div>
+        <div class="panel-tools" id="reqSummary"></div>
+      </header>
+      <div id="requestsBody"><div class="empty"><div class="d">Loading…</div></div></div>
+      <div id="reqHistory"></div>
+    </section>
+
+    <!-- ─── Accounts ────────────────────────────────────────────── -->
+    <section class="panel">
+      <header class="panel-head">
+        <div class="titles">
+          <h2>Accounts</h2>
+          <div class="panel-sub">Changing a role takes effect immediately — no sign-out required.</div>
+        </div>
+        <div class="panel-tools">
+          <div class="search">
+            <i class="fas fa-magnifying-glass"></i>
+            <input class="inp" id="memberSearch" type="search" placeholder="Search" autocomplete="off">
+          </div>
+          <button class="btn" id="btnToggleAdd">Add account</button>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table class="grid" id="usersTable">
+          <thead>
+            <tr>
+              <th>Name</th><th>Sign-in method</th><th>Role</th><th>Status</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr><td colspan="5"><div class="empty"><div class="d">Loading…</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ─── Audit log (separate, verified identities only) ──────── -->
+    <section class="panel" id="audit">
+      <header class="panel-head">
+        <div class="titles">
+          <h2>Access audit log</h2>
+          <div class="panel-sub">Every privilege change on this platform, oldest retained entry onward. Read-only.</div>
+        </div>
+        <div class="panel-tools">
+          <span class="lock-tag" title="Requires the Admin role and an identity verified by Google, not a locally created password account.">
+            <i class="fas fa-shield-halved"></i> Verified access only
+          </span>
+          <div class="seg" id="auditSeg" style="display:none;">
+            <button type="button" class="on" data-view="activity">Activity</button>
+            <button type="button" data-view="decisions">Decisions</button>
+          </div>
+        </div>
+      </header>
+      <div id="auditBody"><div class="empty"><div class="d">Loading…</div></div></div>
+    </section>
+
+    <!-- ─── Permission reference ────────────────────────────────── -->
+    <section class="panel">
+      <header class="panel-head">
+        <div class="titles">
+          <h2>Role permissions</h2>
+          <div class="panel-sub">Enforced server-side on every request, not by hiding controls in the interface.</div>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table id="matrix">
+          <colgroup id="matrixCols"><col></colgroup>
+          <thead><tr id="matrixHead"><th>Capability</th></tr></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <div class="modal-head">
+        <h3 id="dlgTitle"></h3>
+        <p class="sub" id="dlgSub"></p>
+      </div>
+      <div class="modal-body" id="dlgBody"></div>
+      <div class="modal-foot">
+        <div class="spacer" id="dlgFootNote"></div>
+        <button class="btn" id="dlgCancel">Cancel</button>
+        <button class="btn primary" id="dlgOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    let ROLES = [];
+    let CAN_AUDIT = false;
+    let AUDIT_VIEW = 'activity';
+    let noticeTimer = null;
+
+    /** Role → privilege tier, used for the intensity ladder. */
+    const tier = (role) => role === 'admin' ? 3 : role === 'analyst_admin' ? 2 : 1;
+
+    function notice(kind, message) {
+      const el = $('notice');
+      el.className = 'notice show ' + kind;
+      el.innerHTML = `<span class="bar"></span><span>${esc(message)}</span>` +
+                     `<button class="x" aria-label="Dismiss">✕</button>`;
+      el.querySelector('.x').addEventListener('click', () => el.classList.remove('show'));
+      clearTimeout(noticeTimer);
+      if (kind !== 'error') noticeTimer = setTimeout(() => el.classList.remove('show'), 6000);
+    }
+
+    async function api(url, options) {
+      const res = await fetch(url, Object.assign({
+        headers: { 'Content-Type': 'application/json' },
+      }, options || {}));
+      let body = {};
+      try { body = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        const err = new Error(body.message || body.error || `Request failed (${res.status})`);
+        err.status = res.status; err.code = body.error;
+        throw err;
+      }
+      return body;
+    }
+
+    /** `onOk(bodyEl)` may throw to show an inline error and stay open, so a
+     *  validation slip never costs the user their typed input. */
+    function openModal({ title, sub, body, okLabel, danger, footNote, onOk }) {
+      return new Promise((resolve) => {
+        $('dlgTitle').textContent = title;
+        $('dlgSub').textContent = sub || '';
+        $('dlgSub').style.display = sub ? '' : 'none';
+        $('dlgBody').innerHTML = body + '<div class="modal-err" id="dlgErr"></div>';
+        $('dlgFootNote').innerHTML = footNote || '';
+        const ok = $('dlgOk'), cancel = $('dlgCancel');
+        ok.textContent = okLabel || 'Confirm';
+        ok.className = 'btn ' + (danger ? 'danger' : 'primary');
+        ok.disabled = false;
+        $('overlay').classList.add('show');
+        const first = $('dlgBody').querySelector('input, select');
+        if (first) setTimeout(() => first.focus(), 40);
+
+        const close = (v) => {
+          $('overlay').classList.remove('show');
+          ok.removeEventListener('click', run);
+          cancel.removeEventListener('click', onCancel);
+          document.removeEventListener('keydown', onKey);
+          resolve(v);
+        };
+        async function run() {
+          $('dlgErr').classList.remove('show');
+          ok.disabled = true;
+          try { await onOk($('dlgBody')); close(true); }
+          catch (e) {
+            const err = $('dlgErr');
+            err.textContent = e.message || 'Something went wrong.';
+            err.classList.add('show');
+            ok.disabled = false;
+          }
+        }
+        const onCancel = () => close(false);
+        const onKey = (e) => {
+          if (e.key === 'Escape') onCancel();
+          else if (e.key === 'Enter' && e.target.tagName === 'INPUT') run();
+        };
+        ok.addEventListener('click', run);
+        cancel.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKey);
+      });
+    }
+
+    function initials(name, email) {
+      const src = (name || email || '?').trim();
+      const parts = src.split(/[\s._-]+/).filter(Boolean);
+      return (parts.length > 1 ? parts[0][0] + parts[1][0] : src.slice(0, 2)).toUpperCase();
+    }
+
+    // Desaturated tones, picked deterministically so a person keeps the same
+    // colour across reloads — it makes rows findable, not decorative.
+    const TONES = [
+      ['#EEF2FF', '#3A44A8', '#D3DAFB'], ['#E9F7F0', '#0E7350', '#C8E9D9'],
+      ['#FDF3E7', '#8A5310', '#F2DCBE'], ['#FBEFF4', '#94305C', '#F0D2DF'],
+      ['#EAF2FD', '#1F4C9B', '#CBDEF7'], ['#F3EEFB', '#5B3695', '#DDD1F2'],
+      ['#E8F5F6', '#12656E', '#C6E5E8'],
+    ];
+    function toneFor(key) {
+      let h = 0;
+      for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      return TONES[Math.abs(h) % TONES.length];
+    }
+    function avatar(name, email) {
+      const [bg, fg, bd] = toneFor((email || name || '?').toLowerCase());
+      return `<span class="avatar" style="background:${bg};color:${fg};border-color:${bd};">${
+        esc(initials(name, email))}</span>`;
+    }
+
+    /** Server timestamps are naive UTC ("2026-08-03 06:17:24"). */
+    function toDate(ts) {
+      if (!ts) return null;
+      const d = new Date(String(ts).replace(' ', 'T') + 'Z');
+      return isNaN(d) ? null : d;
+    }
+    function when(ts) {
+      const d = toDate(ts);
+      if (!d) return ts || null;
+      const mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 1) return 'moments ago';
+      if (mins < 60) return `${mins} min ago`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `${hrs} hr ago`;
+      const days = Math.round(hrs / 24);
+      if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+      return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    const clock = (ts) => {
+      const d = toDate(ts);
+      return d ? d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '—';
+    };
+    const dayKey = (ts) => {
+      const d = toDate(ts);
+      if (!d) return 'Unknown date';
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const that = new Date(d); that.setHours(0, 0, 0, 0);
+      const diff = Math.round((today - that) / 86400000);
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const METHODS = {
+      google:   ['fab fa-google', 'Google'],
+      local:    ['fas fa-key', 'Password'],
+      password: ['fas fa-key', 'Password'],
+      form:     ['fas fa-file-lines', 'Request form'],
+    };
+    function method(p) {
+      const [i, l] = METHODS[p] || ['fab fa-google', 'Google'];
+      return `<span class="method"><i class="${i}"></i>${l}</span>`;
+    }
+    function methodChip(p) {
+      const [i, l] = METHODS[p] || ['fab fa-google', 'Google'];
+      return `<span class="chip"><i class="${i}"></i>${l}</span>`;
+    }
+
+    const roleMeta = (v) => ROLES.find((x) => x.value === v) || { label: v, summary: '', description: '' };
+    const roleLabel = (v) => roleMeta(v).label;
+    const roleOptions = (sel) => ROLES.map((r) =>
+      `<option value="${esc(r.value)}"${r.value === sel ? ' selected' : ''}>${esc(r.label)}</option>`).join('');
+    const rchip = (role, label) => `<span class="rchip t${tier(role)}">${esc(label || roleLabel(role))}</span>`;
+
+    // ─── Accounts ───────────────────────────────────────────────
+    async function loadUsers() {
+      const data = await api('/api/admin/users');
+      ROLES = data.roles || [];
+      CAN_AUDIT = !!(data.me && data.me.identity_verified);
+      $('statTotal').textContent = data.counts.total;
+      $('statActive').textContent = data.counts.active;
+      $('statAdmins').textContent = data.counts.admins;
+      setPending(data.pending_requests);
+      renderMix(data.users || []);
+
+      const rows = (data.users || []).map((u) => {
+        const roleCell = u.is_bootstrap
+          ? `${rchip(u.role, u.role_label)}
+             <div class="note">Fixed by <code>BOOTSTRAP_SUPER_ADMINS</code></div>`
+          : `<select class="sel t${tier(u.role)}" data-role-for="${esc(u.uid)}"
+                     aria-label="Role for ${esc(u.email)}">${roleOptions(u.role)}</select>`;
+        const seen = when(u.last_login);
+        return `
+        <tr data-uid="${esc(u.uid)}" class="${u.active ? '' : 'is-inactive'}"
+            data-search="${esc(((u.display_name || '') + ' ' + u.email).toLowerCase())}">
+          <td>
+            <div class="member">
+              ${avatar(u.display_name, u.email)}
+              <div>
+                <div class="m-name">${esc(u.display_name)}${u.is_self ? '<span class="self-tag">You</span>' : ''}</div>
+                <div class="m-mail">${esc(u.email)}</div>
+                <div class="m-meta">${u.department ? esc(u.department) + '<span class="sep">|</span>' : ''}${
+                  seen ? 'Last active ' + esc(seen) : 'Never signed in'}</div>
+              </div>
+            </div>
+          </td>
+          <td>${method(u.auth_provider)}</td>
+          <td>${roleCell}</td>
+          <td><span class="status ${u.active ? 'on' : 'off'}"><span class="dot"></span>${
+                u.active ? 'Enabled' : 'Disabled'}</span></td>
+          <td>
+            <div class="actions">
+              ${u.auth_provider === 'local'
+                ? `<button class="link-btn" data-pw-for="${esc(u.uid)}">Reset password</button><span class="vr"></span>` : ''}
+              <button class="link-btn" data-toggle-for="${esc(u.uid)}" data-next="${u.active ? '0' : '1'}"
+                      ${u.is_self ? 'disabled title="You cannot disable your own account"' : ''}>${
+                u.active ? 'Disable' : 'Enable'}</button>
+              <span class="vr"></span>
+              <button class="link-btn destructive" data-del-for="${esc(u.uid)}"
+                      ${u.is_self ? 'disabled title="You cannot delete your own account"' : ''}>Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      });
+      $('usersBody').innerHTML = rows.length ? rows.join('')
+        : '<tr><td colspan="5"><div class="empty"><div class="d">No accounts.</div></div></td></tr>';
+      renderMatrix();
+      applySearch();
+    }
+
+    /** Stacked bar of how many accounts hold each privilege tier. */
+    function renderMix(users) {
+      const live = users.filter((u) => u.active);
+      const counts = { 1: 0, 2: 0, 3: 0 };
+      live.forEach((u) => { counts[tier(u.role)]++; });
+      const total = live.length || 1;
+      $('mixBar').innerHTML = [1, 2, 3].map((t) => counts[t]
+        ? `<span class="mix-seg-t${t}" style="width:${(counts[t] / total * 100).toFixed(2)}%"></span>` : '').join('');
+      const names = { 1: 'Dashboard Viewer', 2: 'Analyst + Admin', 3: 'Admin' };
+      // The legend swatch reuses the bar's own class, so the two can never drift.
+      $('mixLegend').innerHTML = [1, 2, 3].map((t) =>
+        `<span><i class="mix-seg-t${t}"></i>${counts[t]} ${esc(names[t])}</span>`).join('');
+    }
+
+    function setPending(n) {
+      $('statPending').textContent = n;
+      $('statPendingCard').className = 'fig' + (n > 0 ? ' alert' : '');
+      const pill = $('pendingPill');
+      pill.textContent = n;
+      pill.className = 'count' + (n > 0 ? ' attn' : '');
+      $('requests').classList.toggle('attn', n > 0);
+      const badge = $('sb-pending-badge');
+      badge.textContent = n;
+      badge.classList.toggle('show', n > 0);
+    }
+
+    // ─── Access requests ────────────────────────────────────────
+    /** Hours a request has been waiting, and the tone that earns it. */
+    function age(ts) {
+      const d = toDate(ts);
+      if (!d) return { hrs: 0, cls: '', chip: '' };
+      const hrs = (Date.now() - d.getTime()) / 3600000;
+      const cls = hrs >= 168 ? 'age-late' : hrs >= 24 ? 'age-warn' : '';
+      return { hrs, cls, chip: cls === 'age-late' ? 'bad' : cls === 'age-warn' ? 'warn' : '' };
+    }
+    /** "Waiting 4 days" reads as a queue; "4 days ago" reads as a fact. */
+    function waited(ts) {
+      const d = toDate(ts);
+      if (!d) return 'Waiting';
+      const mins = Math.round((Date.now() - d.getTime()) / 60000);
+      if (mins < 60) return `Waiting ${Math.max(mins, 1)} min`;
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return `Waiting ${hrs} hr`;
+      const days = Math.round(hrs / 24);
+      return `Waiting ${days} ${days === 1 ? 'day' : 'days'}`;
+    }
+
+    let HIST_OPEN = false;   // survives the refresh that follows each decision
+
+    async function loadRequests() {
+      const data = await api('/api/admin/access-requests');
+      const pending = data.pending || [];
+      const reviewed = data.reviewed || [];
+      setPending(pending.length);
+
+      // Header summary: the one number that decides whether this panel is urgent.
+      const oldest = pending.reduce((worst, r) =>
+        age(r.requested_at).hrs > age(worst.requested_at).hrs ? r : worst, pending[0]);
+      $('reqSummary').innerHTML = pending.length
+        ? `<span class="chip ${age(oldest.requested_at).chip}"><i class="fas fa-hourglass-half"></i>Oldest ${
+             esc(waited(oldest.requested_at).replace('Waiting ', ''))}</span>`
+        : '';
+
+      if (!pending.length) {
+        $('requestsBody').innerHTML = `<div class="empty">
+            <div class="t">Nothing waiting</div>
+            <div class="d">Sign-in attempts from unrecognised accounts appear here for review.
+              Decisions already taken stay listed below.</div>
+          </div>`;
+      } else {
+        $('requestsBody').innerHTML = pending.map((r) => {
+          const a = age(r.requested_at);
+          const name = r.display_name || r.email;
+          return `
+            <article class="req ${a.cls}">
+              <div class="req-who">
+                ${avatar(r.display_name, r.email)}
+                <div style="min-width:0;">
+                  <div class="m-name">${esc(name)}</div>
+                  ${r.display_name ? `<div class="m-mail">${esc(r.email)}</div>` : ''}
+                </div>
+              </div>
+              <div class="req-facts">
+                ${methodChip(r.provider)}
+                ${r.uid
+                  ? `<span class="chip ok" title="Verified by their provider — approving creates no password."
+                        ><i class="fas fa-user-check"></i>Identity verified</span>`
+                  : `<span class="chip warn" title="No provider-verified identity, so approving asks you to set an initial password."
+                        ><i class="fas fa-key"></i>Needs a password</span>`}
+                <span class="chip ${a.chip}" title="Requested ${esc(when(r.requested_at) || '—')}"
+                      ><i class="fas fa-clock"></i>${esc(waited(r.requested_at))}</span>
+              </div>
+              <div class="actions">
+                <button class="link-btn destructive" data-reject="${r.id}" data-email="${esc(r.email)}">Reject</button>
+                <button class="btn primary" data-approve="${r.id}" data-email="${esc(r.email)}"
+                        data-name="${esc(name)}"
+                        data-verified="${r.uid ? '1' : '0'}">Approve…</button>
+              </div>
+              ${r.note ? `<div class="req-reason"><span class="k">Reason</span>${esc(r.note)}</div>` : ''}
+            </article>`;
+        }).join('');
+      }
+
+      renderHistory(reviewed);
+    }
+
+    /** Decided requests, straight from the same payload the pending list uses. */
+    function renderHistory(reviewed) {
+      if (!reviewed.length) { $('reqHistory').innerHTML = ''; return; }
+      const rows = reviewed.map((r) => {
+        const ok = r.status === 'approved';
+        const bits = [];
+        if (ok && r.granted_role) bits.push(`as ${esc(roleLabel(r.granted_role))}`);
+        if (!ok && r.note) bits.push(`“${esc(r.note)}”`);
+        if (r.reviewed_by) bits.push(`by ${esc(r.reviewed_by)}`);
+        return `<div class="hist-row">
+            <span class="chip ${ok ? 'ok' : 'bad'}"><i class="fas fa-${ok ? 'check' : 'xmark'}"></i>${
+              ok ? 'Approved' : 'Rejected'}</span>
+            <span class="who">${esc(r.email)}</span>
+            ${bits.length ? `<span class="detail">${bits.join(' · ')}</span>` : ''}
+            <span class="meta">${esc(when(r.reviewed_at) || '—')}</span>
+          </div>`;
+      }).join('');
+      $('reqHistory').innerHTML = `
+        <button type="button" class="hist-toggle" id="histToggle" aria-expanded="${HIST_OPEN}"
+                aria-controls="histList">
+          <i class="fas fa-chevron-right caret"></i>
+          Recently decided <span class="count">${reviewed.length}</span>
+          <span class="subtle" style="font-weight:500;">— what these requests were settled as</span>
+        </button>
+        <div id="histList"${HIST_OPEN ? '' : ' hidden'}>${rows}</div>`;
+      $('histToggle').addEventListener('click', () => {
+        HIST_OPEN = !HIST_OPEN;
+        $('histToggle').setAttribute('aria-expanded', HIST_OPEN);
+        $('histList').hidden = !HIST_OPEN;
+      });
+    }
+
+    // ─── Audit log ──────────────────────────────────────────────
+    const EVENT_META = {
+      request_filed:     ['Access requested',  'k-warn'],
+      request_approved:  ['Request approved',  'k-ok'],
+      request_rejected:  ['Request rejected',  'k-bad'],
+      role_changed:      ['Role changed',      'k-info'],
+      account_created:   ['Account created',   'k-ok'],
+      account_enabled:   ['Account enabled',   'k-ok'],
+      account_disabled:  ['Account disabled',  'k-warn'],
+      account_deleted:   ['Account deleted',   'k-bad'],
+      password_reset:    ['Password reset',    'k-warn'],
+      other:             ['Access control',    ''],
+    };
+
+    /** Emphasise quoted role names and email addresses inside the log prose. */
+    function emphasise(msg) {
+      return esc(msg)
+        .replace(/&quot;([^&]+)&quot;/g, '<b>$1</b>')
+        .replace(/([\w.+-]+@[\w.-]+\.\w+)/g, '<b>$1</b>');
+    }
+
+    async function loadAudit() {
+      if (!CAN_AUDIT) {
+        $('auditSeg').style.display = 'none';
+        $('auditBody').innerHTML = `
+          <div class="locked">
+            <div class="locked-ico"><i class="fas fa-lock"></i></div>
+            <div>
+              <div class="t">Restricted to verified identities</div>
+              <div class="d">This log names who granted which privileges to whom, so reading it
+                needs more than the Admin role: the signing-in identity must be verified by your
+                organization's Google sign-in. Locally created email and password accounts cannot
+                view it, even when they hold Admin.</div>
+            </div>
+          </div>`;
+        return;
+      }
+      let data;
+      try {
+        data = await api('/api/admin/audit-log');
+      } catch (e) {
+        if (e.code === 'identity_not_verified') { CAN_AUDIT = false; return loadAudit(); }
+        $('auditBody').innerHTML = `<div class="empty"><div class="t">Could not load the audit log</div>
+          <div class="d">${esc(e.message)}</div></div>`;
+        return;
+      }
+      $('auditSeg').style.display = '';
+      window.__audit = data;
+      renderAudit();
+    }
+
+    function renderAudit() {
+      const data = window.__audit;
+      if (!data) return;
+      $('auditSeg').querySelectorAll('button').forEach(
+        (b) => b.classList.toggle('on', b.getAttribute('data-view') === AUDIT_VIEW));
+
+      if (AUDIT_VIEW === 'decisions') {
+        const rows = data.decisions || [];
+        $('auditBody').innerHTML = rows.length ? `
+          <div class="table-wrap">
+            <table class="grid">
+              <thead><tr>
+                <th>Requester</th><th>Outcome</th><th>Role granted</th><th>Reviewed by</th><th>Date</th>
+              </tr></thead>
+              <tbody>
+                ${rows.map((r) => `
+                  <tr>
+                    <td><div class="member">${avatar(r.display_name, r.email)}
+                      <div><div class="m-name">${esc(r.display_name || r.email)}</div>
+                        <div class="m-mail">${esc(r.email)}</div>
+                        ${r.status === 'rejected' && r.note ? `<div class="m-meta">Reason: ${esc(r.note)}</div>` : ''}
+                      </div></div></td>
+                    <td><span class="status ${r.status === 'approved' ? 'on' : 'off'}"><span class="dot"></span>${
+                          r.status === 'approved' ? 'Approved' : 'Rejected'}</span></td>
+                    <td>${r.granted_role ? rchip(r.granted_role) : '<span class="subtle">—</span>'}</td>
+                    <td><span class="subtle">${esc(r.reviewed_by || '—')}</span></td>
+                    <td><span class="subtle nowrap">${esc(when(r.reviewed_at) || '—')}</span></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`
+          : `<div class="empty"><div class="t">No decisions recorded</div>
+             <div class="d">Approved and rejected access requests will be listed here.</div></div>`;
+        return;
+      }
+
+      const entries = data.entries || [];
+      if (!entries.length) {
+        $('auditBody').innerHTML = `<div class="empty"><div class="t">No activity recorded</div>
+          <div class="d">Role changes, account changes and access decisions will appear here.</div></div>`;
+        return;
+      }
+      // Group chronologically by day, newest first.
+      const groups = [];
+      entries.forEach((e) => {
+        const k = dayKey(e.timestamp);
+        if (!groups.length || groups[groups.length - 1].day !== k) groups.push({ day: k, items: [] });
+        groups[groups.length - 1].items.push(e);
+      });
+      $('auditBody').innerHTML = groups.map((g) => `
+        <div class="day-head">${esc(g.day)}<span class="n">${g.items.length} ${
+          g.items.length === 1 ? 'entry' : 'entries'}</span></div>
+        ${g.items.map((e) => {
+          const [label, cls] = EVENT_META[e.kind] || EVENT_META.other;
+          return `
+          <div class="ev ${cls}">
+            <div class="ev-rail"><span class="ev-dot"></span></div>
+            <div class="ev-body">
+              <div class="ev-top">
+                <span class="ev-kind">${esc(label)}</span>
+                <span class="ev-time mono">${esc(clock(e.timestamp))}</span>
+              </div>
+              <div class="ev-msg">${emphasise(e.message)}</div>
+            </div>
+          </div>`;
+        }).join('')}`).join('');
+    }
+
+    $('auditSeg').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-view]');
+      if (!b) return;
+      AUDIT_VIEW = b.getAttribute('data-view');
+      renderAudit();
+    });
+
+    // ─── Permission matrix ──────────────────────────────────────
+    function renderMatrix() {
+      if (!ROLES.length) return;
+      $('matrixCols').innerHTML = '<col>' + ROLES.map((r) =>
+        `<col${r.value === 'admin' ? ' class="hl"' : ''}>`).join('');
+      $('matrixHead').innerHTML = '<th>Capability</th>' + ROLES.map((r) =>
+        `<th>${rchip(r.value, r.label)}<div class="r-desc">${esc(r.description)}</div></th>`).join('');
+      const caps = (ROLES[0].capabilities || []).map((c) => c.name);
+      $('matrixBody').innerHTML = caps.map((cap, i) => `
+        <tr><td>${esc(cap)}</td>
+          ${ROLES.map((r) => {
+            const allowed = (r.capabilities[i] || {}).allowed;
+            return `<td>${allowed ? '<span class="mark-yes"><i class="fas fa-check"></i></span>'
+                                  : '<span class="mark-no">—</span>'}</td>`;
+          }).join('')}
+        </tr>`).join('');
+    }
+
+    // ─── Search ─────────────────────────────────────────────────
+    function applySearch() {
+      const q = ($('memberSearch').value || '').trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('#usersBody tr[data-search]').forEach((tr) => {
+        const hit = !q || tr.getAttribute('data-search').includes(q);
+        tr.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      const old = $('noMatchRow');
+      if (old) old.remove();
+      if (q && shown === 0) {
+        const tr = document.createElement('tr');
+        tr.id = 'noMatchRow';
+        tr.innerHTML = `<td colspan="5"><div class="empty"><div class="d">No account matches “${esc(q)}”.</div></div></td>`;
+        $('usersBody').appendChild(tr);
+      }
+    }
+    $('memberSearch').addEventListener('input', applySearch);
+
+    // ─── Inline role change ─────────────────────────────────────
+    document.addEventListener('change', async (ev) => {
+      const sel = ev.target.closest('select[data-role-for]');
+      if (!sel) return;
+      const uid = sel.getAttribute('data-role-for');
+      const previous = sel.getAttribute('data-previous') || '';
+      sel.disabled = true;
+      try {
+        const res = await api(`/api/admin/users/${encodeURIComponent(uid)}/role`, {
+          method: 'POST', body: JSON.stringify({ role: sel.value }),
+        });
+        notice('success', `Role set to ${res.role_label}.`);
+        await refresh();
+      } catch (e) {
+        notice('error', e.message);
+        if (previous) sel.value = previous;
+        await refresh();
+      } finally { sel.disabled = false; }
+    });
+
+    // Keep the role description in a modal in step with its select.
+    document.addEventListener('change', (ev) => {
+      if (ev.target.id === 'mRole' || ev.target.id === 'mNewRole') {
+        const hint = document.getElementById(ev.target.id === 'mRole' ? 'mRoleHint' : 'mNewRoleHint');
+        if (hint) hint.textContent = roleMeta(ev.target.value).description;
+      }
+    });
+
+    // ─── Row + request actions ──────────────────────────────────
+    document.addEventListener('click', async (ev) => {
+      const hit = (attr) => {
+        const el = ev.target.closest(`[${attr}]`);
+        return el ? { el, value: el.getAttribute(attr) } : null;
+      };
+      const idCard = (name, email) =>
+        `<div class="id-card">${avatar(name, email)}<div>
+           <div class="m-name">${esc(name)}</div><div class="m-mail">${esc(email)}</div></div></div>`;
+
+      const toggle = hit('data-toggle-for');
+      if (toggle) {
+        const enable = toggle.el.getAttribute('data-next') === '1';
+        if (enable) {
+          try {
+            await api(`/api/admin/users/${encodeURIComponent(toggle.value)}/active`,
+                      { method: 'POST', body: JSON.stringify({ active: true }) });
+            notice('success', 'Account enabled.');
+          } catch (e) { notice('error', e.message); }
+          await refresh();
+          return;
+        }
+        const row = toggle.el.closest('tr');
+        const done = await openModal({
+          title: 'Disable account',
+          sub: 'Sign-in is blocked immediately and any live session ends on the next request. The account and its history are retained.',
+          body: idCard(row.querySelector('.m-name').textContent.replace('You', '').trim(),
+                       row.querySelector('.m-mail').textContent),
+          okLabel: 'Disable account', danger: true,
+          onOk: async () => api(`/api/admin/users/${encodeURIComponent(toggle.value)}/active`,
+                                { method: 'POST', body: JSON.stringify({ active: false }) }),
+        });
+        if (done) { notice('success', 'Account disabled.'); await refresh(); }
+        return;
+      }
+
+      const pw = hit('data-pw-for');
+      if (pw) {
+        const done = await openModal({
+          title: 'Reset password',
+          sub: 'Replaces the current password immediately. Communicate it through a separate channel.',
+          body: `<div class="field"><label class="lbl" for="mPw">New password</label>
+                 <input class="inp" id="mPw" type="password" placeholder="Minimum 8 characters" autocomplete="new-password"></div>`,
+          okLabel: 'Reset password',
+          onOk: async (b) => {
+            const v = b.querySelector('#mPw').value;
+            if (!v || v.length < 8) throw new Error('Password must be at least 8 characters.');
+            await api(`/api/admin/users/${encodeURIComponent(pw.value)}/password`,
+                      { method: 'POST', body: JSON.stringify({ password: v }) });
+          },
+        });
+        if (done) notice('success', 'Password reset.');
+        return;
+      }
+
+      const del = hit('data-del-for');
+      if (del) {
+        const row = del.el.closest('tr');
+        const email = row.querySelector('.m-mail').textContent;
+        const done = await openModal({
+          title: 'Delete account',
+          sub: 'Permanent. To suspend access temporarily, use Disable instead.',
+          body: idCard(row.querySelector('.m-name').textContent.replace('You', '').trim(), email),
+          okLabel: 'Delete permanently', danger: true,
+          onOk: async () => api(`/api/admin/users/${encodeURIComponent(del.value)}`, { method: 'DELETE' }),
+        });
+        if (done) { notice('success', 'Account deleted.'); await refresh(); }
+        return;
+      }
+
+      const approve = hit('data-approve');
+      if (approve) {
+        const id = approve.value;
+        const email = approve.el.getAttribute('data-email');
+        const name = approve.el.getAttribute('data-name');
+        const verified = approve.el.getAttribute('data-verified') === '1';
+        const first = (ROLES[0] || {}).value || 'viewer';
+        let granted = '';
+        const done = await openModal({
+          title: 'Approve access request',
+          sub: 'An account is created with the role selected below.',
+          body: idCard(name, email) + `
+            <div class="field">
+              <label class="lbl" for="mRole">Role</label>
+              <select class="sel" id="mRole">${roleOptions(first)}</select>
+              <div class="hint" id="mRoleHint">${esc(roleMeta(first).description)}</div>
+            </div>
+            ${verified
+              ? `<p class="hint" style="margin-top:15px;">Identity verified by Google — this platform stores no password for them.</p>`
+              : `<div class="field"><label class="lbl" for="mPw2">Initial password</label>
+                   <input class="inp" id="mPw2" type="password" placeholder="Minimum 8 characters" autocomplete="new-password">
+                   <div class="hint">This request did not come from Google sign-in, so an email and password account is created.</div>
+                 </div>`}`,
+          okLabel: 'Approve',
+          onOk: async (b) => {
+            const role = b.querySelector('#mRole').value;
+            const pwEl = b.querySelector('#mPw2');
+            if (pwEl && (!pwEl.value || pwEl.value.length < 8)) {
+              throw new Error('An initial password of at least 8 characters is required.');
+            }
+            await api(`/api/admin/access-requests/${id}/approve`, {
+              method: 'POST', body: JSON.stringify({ role, password: pwEl ? pwEl.value : null }),
+            });
+            granted = roleLabel(role);
+          },
+        });
+        if (done) { notice('success', `${email} approved as ${granted}.`); await refresh(); }
+        return;
+      }
+
+      const reject = hit('data-reject');
+      if (reject) {
+        const email = reject.el.getAttribute('data-email');
+        const done = await openModal({
+          title: 'Reject access request',
+          sub: 'The requester is not notified. The reason is kept in the audit log.',
+          body: `<p class="kv">Request from <b>${esc(email)}</b></p>
+                 <div class="field"><label class="lbl" for="mNote">Reason (optional)</label>
+                 <input class="inp" id="mNote" type="text" placeholder="e.g. Not a member of the audit team"></div>`,
+          okLabel: 'Reject request', danger: true,
+          onOk: async (b) => api(`/api/admin/access-requests/${reject.value}/reject`, {
+            method: 'POST', body: JSON.stringify({ note: b.querySelector('#mNote').value || null }),
+          }),
+        });
+        if (done) { notice('success', `Request from ${email} rejected.`); await refresh(); }
+        return;
+      }
+    });
+
+    // ─── Add account ────────────────────────────────────────────
+    $('btnToggleAdd').addEventListener('click', async () => {
+      const first = (ROLES[0] || {}).value || 'viewer';
+      let created = '';
+      const done = await openModal({
+        title: 'Add account',
+        sub: 'Creates an email and password account directly, without an access request.',
+        body: `
+          <div class="field"><label class="lbl" for="mName">Full name</label>
+            <input class="inp" id="mName" type="text" placeholder="Priya Sharma" autocomplete="off"></div>
+          <div class="field"><label class="lbl" for="mEmail">Work email</label>
+            <input class="inp" id="mEmail" type="email" placeholder="name@example.com" autocomplete="off"></div>
+          <div class="field"><label class="lbl" for="mPw3">Initial password</label>
+            <input class="inp" id="mPw3" type="password" placeholder="Minimum 8 characters" autocomplete="new-password"></div>
+          <div class="field"><label class="lbl" for="mDept">Department <span style="font-weight:400;color:var(--ink-5);">(optional)</span></label>
+            <input class="inp" id="mDept" type="text" placeholder="IT Internal Audit" autocomplete="off"></div>
+          <div class="field"><label class="lbl" for="mNewRole">Role</label>
+            <select class="sel" id="mNewRole">${roleOptions(first)}</select>
+            <div class="hint" id="mNewRoleHint">${esc(roleMeta(first).description)}</div></div>`,
+        okLabel: 'Create account',
+        footNote: '<span class="hint" style="margin:0;">Password accounts cannot read the audit log.</span>',
+        onOk: async (b) => {
+          const email = b.querySelector('#mEmail').value.trim();
+          const password = b.querySelector('#mPw3').value;
+          if (!email || !email.includes('@')) throw new Error('A valid work email is required.');
+          if (!password || password.length < 8) throw new Error('Password must be at least 8 characters.');
+          const role = b.querySelector('#mNewRole').value;
+          await api('/api/admin/users', {
+            method: 'POST',
+            body: JSON.stringify({
+              display_name: b.querySelector('#mName').value.trim(),
+              email, password, role,
+              department: b.querySelector('#mDept').value.trim(),
+            }),
+          });
+          created = `${email} created as ${roleLabel(role)}.`;
+        },
+      });
+      if (done) { notice('success', created); await refresh(); }
+    });
+
+    // ─── Boot ───────────────────────────────────────────────────
+    async function refresh() {
+      try {
+        await loadUsers();        // populates ROLES + CAN_AUDIT
+        await loadRequests();
+        await loadAudit();
+        document.querySelectorAll('select[data-role-for]').forEach(
+          (s) => s.setAttribute('data-previous', s.value));
+      } catch (e) {
+        notice('error', e.message || 'Could not load accounts.');
+      }
+    }
+
+    $('theme-toggle').addEventListener('click', () => {
+      const dark = document.documentElement.classList.toggle('dark');
+      try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+    });
+
+    (function () {
+      async function loadCurrentUser() {
+        try {
+          const r = await fetch('/api/auth/me');
+          if (!r.ok) return;
+          const j = await r.json();
+          if (!j.authenticated) return;
+          const u = j.user || {};
+          $('sb-user-name').textContent = u.name || (u.email ? u.email.split('@')[0] : 'Signed in');
+          $('sb-user-email').textContent = u.email || '—';
+          const img = $('sb-avatar'), ini = $('sb-avatar-initial');
+          if (u.picture) { img.src = u.picture; img.style.display = ''; ini.style.display = 'none'; }
+          else {
+            ini.textContent = ((u.email || u.name || '?').trim()[0] || '?').toUpperCase();
+            img.style.display = 'none'; ini.style.display = '';
+          }
+          $('sb-user').style.display = '';
+        } catch (e) {}
+      }
+      $('sb-logout').addEventListener('click', async () => {
+        try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        window.location.href = '/login';
+      });
+      loadCurrentUser();
+    })();
+
+    try {
+      const socket = io();
+      socket.on('access_request_new', (d) => {
+        notice('info', `New access request from ${(d && d.email) || 'an unrecognised account'}.`);
+        refresh();
+      });
+      socket.on('team_member_joined', (d) => {
+        notice('info', `${(d && d.email) || 'A new user'} completed sign-up.`);
+        refresh();
+      });
+    } catch (e) {}
+
+    refresh();
+  </script>
+</body>
+</html>

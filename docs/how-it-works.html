@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Intel System — How It Works</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1d2740; --ink:#e7ecf5; --muted:#94a3b8;
+    --line:#2a3650; --auto:#3b82f6; --human:#f59e0b; --deliver:#22c55e; --ai:#a855f7;
+    --danger:#ef4444; --accent:#38bdf8;
+    --radius:14px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(160deg,#0c111c,#0f1420 40%);color:var(--ink);
+       font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header.hero{padding:54px 20px 34px;text-align:center;border-bottom:1px solid var(--line);
+       background:radial-gradient(1200px 300px at 50% -40%,rgba(56,189,248,.12),transparent)}
+  .hero h1{font-size:clamp(26px,5vw,40px);margin:0 0 8px;letter-spacing:-.02em}
+  .hero .shield{font-size:42px;display:block;margin-bottom:6px}
+  .hero p{color:var(--muted);font-size:clamp(15px,2.4vw,18px);margin:6px auto 0;max-width:640px}
+  .oneliner{margin:22px auto 0;max-width:760px;background:var(--panel);border:1px solid var(--line);
+       border-left:4px solid var(--accent);border-radius:var(--radius);padding:16px 20px;text-align:left;
+       font-size:15px}
+  .oneliner b{color:var(--accent)}
+  h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+     margin:48px 0 4px;font-weight:700}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+  section{margin-top:14px}
+
+  /* Pipeline */
+  .pipe{display:flex;flex-direction:column;gap:0}
+  .step{display:flex;gap:16px;position:relative;padding-bottom:6px}
+  .rail{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:44px}
+  .dot{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;
+       font-weight:700;color:#fff;flex:0 0 auto;z-index:1;box-shadow:0 0 0 4px var(--bg)}
+  .line{flex:1;width:2px;background:linear-gradient(var(--line),var(--line));min-height:18px}
+  .step:last-child .line{display:none}
+  .card{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+        padding:14px 18px;margin-bottom:20px}
+  .card h3{margin:0 0 4px;font-size:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .card p{margin:6px 0 0;color:var(--muted);font-size:14px}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;
+       text-transform:uppercase}
+  .t-auto{background:rgba(59,130,246,.16);color:#93c5fd;border:1px solid rgba(59,130,246,.4)}
+  .t-human{background:rgba(245,158,11,.16);color:#fcd34d;border:1px solid rgba(245,158,11,.4)}
+  .t-deliver{background:rgba(34,197,94,.16);color:#86efac;border:1px solid rgba(34,197,94,.4)}
+  .when{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  .file{font-family:var(--mono);font-size:12px;color:#cbd5e1;background:#0c1322;
+        border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+
+  /* Component map */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:14px}
+  .comp{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+  .comp .ic{font-size:22px}
+  .comp h4{margin:8px 0 2px;font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .comp .role{color:var(--muted);font-size:13px;margin:4px 0 0}
+  .port{font-family:var(--mono);font-size:11px;color:#86efac;background:rgba(34,197,94,.12);
+        border:1px solid rgba(34,197,94,.3);padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .fn{font-family:var(--mono);font-size:11.5px;color:#7dd3fc}
+
+  /* AI box */
+  .ai-flow{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+           padding:20px;display:flex;flex-direction:column;gap:14px}
+  .branch{display:flex;gap:14px;flex-wrap:wrap}
+  .bcard{flex:1;min-width:230px;border-radius:12px;padding:14px 16px;border:1px solid var(--line)}
+  .bcard.ai{background:rgba(168,85,247,.10);border-color:rgba(168,85,247,.45)}
+  .bcard.fb{background:rgba(148,163,184,.08)}
+  .bcard h4{margin:0 0 6px;font-size:14px}
+  .bcard p{margin:0;color:var(--muted);font-size:13px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:6px;
+        background:#0c1322;border:1px solid var(--line);color:#c4b5fd;margin-bottom:8px}
+  .arrowdown{text-align:center;color:var(--muted);font-size:20px;line-height:1}
+
+  .note{display:flex;gap:12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);
+        border-radius:12px;padding:14px 16px;margin-top:14px;font-size:13.5px}
+  .note .ic{font-size:20px;flex:0 0 auto}
+  .note b{color:#fcd34d}
+  .ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.35)}
+  .ok b{color:#86efac}
+
+  /* email landing */
+  .land{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:6px}
+  .echip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .echip .h{font-size:14px;font-weight:600;margin-bottom:6px;display:flex;gap:8px;align-items:center}
+  .echip .h .e{font-size:18px}
+  .echip code{font-family:var(--mono);font-size:11.5px;color:#7dd3fc}
+  .reportbox{margin-top:18px;background:#0c1322;border:1px solid var(--line);border-radius:12px;
+             overflow:hidden}
+  .reportbox .top{background:var(--panel2);padding:8px 14px;font-size:12px;color:var(--muted);
+                  border-bottom:1px solid var(--line);font-family:var(--mono)}
+  .reportbox table{width:100%;border-collapse:collapse;font-size:13px}
+  .reportbox td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  .reportbox td.k{color:var(--muted);width:160px;font-family:var(--mono);font-size:12px}
+  .reportbox tr.hi td{background:rgba(168,85,247,.10)}
+  .reportbox tr.hi td.k{color:#c4b5fd}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:50px;
+         border-top:1px solid var(--line);padding-top:18px}
+  .scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="shield">🛡️</span>
+  <h1>Threat Intelligence Automation System</h1>
+  <p>How the whole thing works — the weekly pipeline, the moving parts, and who actually writes the summaries.</p>
+  <div class="oneliner">
+    <b>In one sentence:</b> Every week it auto-scrapes cyber-threat news → a local AI model summarizes it →
+    a <b>human manager approves</b> by email → the format is validated → a clean SOC report is auto-emailed to the team —
+    with a live dashboard watching the whole thing.
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- PIPELINE -->
+  <h2>① The weekly pipeline</h2>
+  <p class="sub">The journey of one threat report, start to finish. Blue = automatic · Amber = a human decides · Green = goes out.</p>
+  <section class="pipe">
+
+    <div class="step">
+      <div class="rail"><div class="dot" style="background:var(--auto)">1</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Scrape the news <span class="tag t-auto">automatic</span> <span class="when">Mon 10:00 AM IST</span></h3>
+        <p>Pulls articles from 6 cyber-news feeds (Hacker News, Krebs, Bleeping Computer, Bank Info Security…),
+           scores each for financial-sector relevance (SEBI, RBI, UPI, CVE, zero-day…) and saves them.
+           &nbsp;<span class="file">web_scraper.py</span> → <span class="file">database.py</span></p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot" style="background:var(--ai)">2</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Summarize &amp; build report <span class="tag t-auto">automatic</span> <span class="tag" style="background:rgba(168,85,247,.16);color:#d8b4fe;border:1px solid rgba(168,85,247,.4)">local AI</span></h3>
+        <p>A local <b>BART</b> model writes the “Threat Summary” &amp; “Description”; the report is formatted into HTML/Excel.
+           &nbsp;<span class="file">soc_report_formatter_enhanced.py</span></p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot" style="background:var(--human)">3</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Manager review <span class="tag t-human">human gate</span></h3>
+        <p>The top articles are emailed to a manager with <b>Approve / Reject</b> buttons. A click hits the callback server,
+           which records the decision. &nbsp;<span class="file">email_system.py</span> → <span class="file">callback_server.py</span></p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot" style="background:var(--human)">4</div><div class="line"></div></div>
+      <div class="card">
+        <h3>Sender validation <span class="tag t-human">human gate</span></h3>
+        <p>A second check confirms the report is correctly formatted (another approve/reject email) before it can leave.
+           &nbsp;<span class="file">sender_validation.py</span></p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="rail"><div class="dot" style="background:var(--deliver)">5</div></div>
+      <div class="card">
+        <h3>Deliver to SOC <span class="tag t-deliver">sent</span> <span class="when">target: Tue 11:00 AM</span></h3>
+        <p>Once validated, the final HTML report is emailed to the SOC team; the scheduler manages the timing.
+           &nbsp;<span class="file">scheduler.py</span> → <span class="file">email_system.py</span></p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- COMPONENTS -->
+  <h2>② The moving parts</h2>
+  <p class="sub">Two Flask servers run at the same time and talk to each other; everything else is a supporting module.</p>
+  <section class="grid">
+    <div class="comp">
+      <div class="ic">🖥️</div>
+      <h4>web_dashboard.py <span class="port">:5001</span></h4>
+      <p class="role">The website you look at — shows news, schedule, reports, analytics; trigger scrapes &amp; deliveries by hand.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">📨</div>
+      <h4>callback_server.py <span class="port">:5000</span></h4>
+      <p class="role">Catches the Approve/Reject/Validate button clicks inside emails and records them.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">⏰</div>
+      <h4>scheduler.py</h4>
+      <p class="role">The clock/brain — runs the Monday scrape and manages delivery timing. Uses <span class="fn">enhanced_scheduler.py</span> as a helper.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">🕷️</div>
+      <h4>web_scraper.py</h4>
+      <p class="role">Fetches &amp; scores articles from the 6 news feeds.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">🤖</div>
+      <h4>soc_report_formatter_enhanced.py</h4>
+      <p class="role">The live formatter — turns an article into a SOC report (summary via local BART model). The older <span class="fn">soc_report_formatter.py</span> is fallback-only.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">🗄️</div>
+      <h4>database.py <span class="port">threat_intel.db</span></h4>
+      <p class="role">SQLite store: articles, approvals, deliveries, scraping sessions, validations, logs, users.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">✉️</div>
+      <h4>email_system.py</h4>
+      <p class="role">Sends all emails over SMTP.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">⚙️</div>
+      <h4>config.py <span class="port">admin_settings.json</span></h4>
+      <p class="role">Settings (schedule, recipients…) editable without touching code.</p>
+    </div>
+    <div class="comp">
+      <div class="ic">🔐</div>
+      <h4>auth.py · rbac.py</h4>
+      <p class="role">Dashboard login (Firebase) + roles (admin vs. user).</p>
+    </div>
+  </section>
+
+  <!-- AI SUMMARIES -->
+  <h2>③ Who writes the summaries?</h2>
+  <p class="sub">A local, free, open-source model on your own machine — <b>no Gemini, no OpenAI, no cloud API.</b></p>
+  <section class="ai-flow">
+    <div>
+      <span class="pill">soc_report_formatter_enhanced.py → create_clear_summary()</span>
+      <p style="margin:0;color:var(--muted);font-size:14px">Cleaned article text goes in. The code tries the AI model first, and falls back if it isn't available:</p>
+    </div>
+    <div class="branch">
+      <div class="bcard ai">
+        <h4>🧠 Path A — AI (preferred)</h4>
+        <p><b>BART</b> <code style="font-family:var(--mono);font-size:12px">facebook/bart-large-cnn</code> condenses the real article into a summary.
+        Relevant sentences are picked first using <code style="font-family:var(--mono);font-size:12px">all-MiniLM-L6-v2</code> + scikit-learn.
+        Runs locally (~1.5&nbsp;GB, cached after first download).</p>
+      </div>
+      <div class="bcard fb">
+        <h4>📝 Path B — Rule-based fallback</h4>
+        <p>If the AI libraries aren't installed/loadable, it just extracts the best 2–5 real sentences with regex/heuristics. No AI involved.</p>
+      </div>
+    </div>
+    <div class="note ok">
+      <span class="ic">✅</span>
+      <div><b>Confirmed running now (Jun 22):</b> a live test loaded BART successfully and produced an AI summary
+      (<code style="font-family:var(--mono)">AI_AVAILABLE = True</code>). The model is fully downloaded to the Hugging Face cache.</div>
+    </div>
+    <div class="note">
+      <span class="ic">⚠️</span>
+      <div><b>But all past reports used Path B.</b> Every logged run from <b>May 26 – Jun 8</b> recorded
+      <i>“model failed to load: No module named 'transformers'”</i> — the AI deps were only installed recently.
+      Also note: the code logs AI <b>failures</b> but not successes, so the database won't show recent AI activity even though it's working — the cache is the proof.</div>
+    </div>
+  </section>
+
+  <!-- WHERE IT LANDS -->
+  <h2>④ Where the summary lands</h2>
+  <p class="sub">The same formatted report becomes the body of all three emails in the workflow.</p>
+
+  <div class="reportbox">
+    <div class="top">SOC Threat Report  —  generate_soc_report_html()</div>
+    <div class="scroll">
+    <table>
+      <tr><td class="k">Title</td><td>Banking API gateway flaw</td></tr>
+      <tr><td class="k">Threat Type</td><td>Vulnerability</td></tr>
+      <tr class="hi"><td class="k">Threat Summary</td><td>← written by <b>BART</b> (or fallback)</td></tr>
+      <tr class="hi"><td class="k">Description</td><td>← written by <b>BART</b> (or fallback)</td></tr>
+      <tr><td class="k">CVE / Severity</td><td>regex-extracted from article</td></tr>
+      <tr><td class="k">Mitigation</td><td>regex-extracted from article</td></tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="land">
+    <div class="echip">
+      <div class="h"><span class="e">📩</span> Manager approval email</div>
+      <code>email_system.py</code>
+    </div>
+    <div class="echip">
+      <div class="h"><span class="e">🧾</span> Sender-validation email <span style="color:var(--muted);font-size:12px">(+ Excel)</span></div>
+      <code>sender_validation.py</code>
+    </div>
+    <div class="echip">
+      <div class="h"><span class="e">🚀</span> Final SOC delivery email</div>
+      <code>scheduler.py</code>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--auto)"></span>Automatic step</span>
+    <span><span class="sw" style="background:var(--human)"></span>Human approval gate</span>
+    <span><span class="sw" style="background:var(--deliver)"></span>Sent to SOC</span>
+    <span><span class="sw" style="background:var(--ai)"></span>Local AI (BART)</span>
+  </div>
+
+  <footer>
+    Generated from the live codebase · Threat Intel project · 2026-06-22
+  </footer>
+</div>
+</body>
+</html>

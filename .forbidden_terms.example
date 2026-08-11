@@ -1,0 +1,19 @@
+# Terms that must never appear in a committed file. One per line, # for comments.
+#
+#   cp .forbidden_terms.example .forbidden_terms
+#
+# check_secrets.py reads this list and fails the pre-push scan if any term shows
+# up in a file git would publish. TI_BRAND_NAME and TI_BRAND_COLOR from .env are
+# included automatically, so list only the extras here.
+#
+# The real file is gitignored — spelling these terms out in a committed file
+# would leak the very thing the check exists to protect.
+
+# Your surname, so it cannot reappear as a form placeholder or sample value.
+#Doe
+
+# Internal hostnames that should never be named in public source.
+#intranet.example-corp.com
+
+# Legacy brand colours replaced by TI_BRAND_COLOR.
+##1A2B3C

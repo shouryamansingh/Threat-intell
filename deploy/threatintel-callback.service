@@ -1,0 +1,61 @@
+# Callback server — receives the Approve / Reject clicks from email buttons.
+# Install to /etc/systemd/system/ alongside threatintel-dashboard.service.
+#
+#   sudo cp deploy/threatintel-callback.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now threatintel-callback
+#
+# Runs as a separate service because it must stay responsive to a manager
+# clicking a link days after the mail was sent, independently of whatever the
+# dashboard process is doing.
+
+[Unit]
+Description=Threat Intelligence Callback Server (email approve/reject links)
+Documentation=file:///opt/threatintel/deploy/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=threatintel
+Group=threatintel
+WorkingDirectory=/opt/threatintel
+
+# Same environment file as the dashboard — both processes must agree on the
+# signing secret path, the database path and the public base URL.
+EnvironmentFile=/etc/threatintel/threatintel.env
+
+# Plain Flask app (no Socket.IO here), so a normal sync worker pool is right.
+# 2 workers is ample: the traffic is a handful of link clicks per week.
+ExecStart=/opt/threatintel/.venv/bin/gunicorn \
+    --workers 2 \
+    --timeout 120 \
+    --graceful-timeout 30 \
+    --bind 127.0.0.1:5000 \
+    --access-logfile - \
+    --error-logfile - \
+    callback_server:app
+
+Restart=on-failure
+RestartSec=5s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=threatintel-callback
+
+# ── Hardening ────────────────────────────────────────────────────────────
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/threatintel /var/log/threatintel
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
