@@ -1,0 +1,34 @@
+# Application box only (the Lightsail instance running the dashboard, callback
+# server and scheduler) in a SPLIT deployment.
+#
+# Install with:  pip install -r requirements-app.txt
+#
+# This is requirements.txt minus transformers, sentence-transformers, torch and
+# scikit-learn — the four packages that force an 8 GB instance. With TI_INFERENCE_URL
+# set, those two model calls go to the inference box instead, so the code paths
+# that would import them are never reached.
+#
+# Use requirements.txt (not this file) for local development and for a
+# single-box deployment, where the models load in-process.
+#
+# nltk stays: it is not imported directly, but newspaper3k requires it.
+
+beautifulsoup4==4.12.2
+requests==2.31.0
+feedparser==6.0.11
+newspaper3k==0.2.8
+lxml[html_clean]
+fake-useragent==1.4.0
+APScheduler==3.10.4
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+eventlet==0.33.3
+openpyxl==3.1.5
+nltk==3.9.1
+pyjwt[crypto]>=2.8.0
+pytz>=2024.1
+
+# Production WSGI server. The Werkzeug development server that `python
+# web_dashboard.py` starts has no request timeouts and no slow-client
+# protection; the systemd units in deploy/ run gunicorn instead.
+gunicorn>=21.2.0

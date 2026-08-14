@@ -1,0 +1,22 @@
+# Inference box only (the EC2 instance that holds the models).
+#
+# Install with:  pip install -r requirements-inference.txt
+#
+# This is the whole reason the split is worth doing: torch plus the two model
+# checkpoints is ~4.5 GB resident, and it is confined to this file. Nothing here
+# touches Flask sessions, SQLite, SMTP or the scheduler — inference_server.py
+# imports neither config.py nor database.py.
+#
+# Pins match requirements.txt exactly. If you bump a version there, bump it here
+# too: a summariser that behaves differently from the one the reports were tuned
+# against is a silent quality regression, not an error.
+
+transformers==4.47.1
+sentence-transformers==3.3.1
+torch==2.9.0
+scikit-learn
+
+# Serves the /summarize and /rank endpoints. numpy and scipy arrive via
+# scikit-learn; no other web dependency is needed — no Socket.IO, no eventlet.
+Flask==2.3.3
+gunicorn>=21.2.0

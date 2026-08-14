@@ -8,7 +8,16 @@ import re
 from dataclasses import dataclass, field
 from bs4 import BeautifulSoup
 
-from config import COMPANY_NAME, SOC_EMAIL, ENFORCE_NUMBERING_1_TO_10
+from config import (
+    COMPANY_NAME,
+    SOC_EMAIL,
+    ENFORCE_NUMBERING_1_TO_10,
+    INFERENCE_URL,
+    INFERENCE_TOKEN,
+    INFERENCE_TIMEOUT,
+    INFERENCE_FAILURE_LIMIT,
+    INFERENCE_COOLDOWN_SECONDS,
+)
 from database import db
 
 
@@ -48,10 +57,19 @@ class EnhancedSOCReportFormatter:
         self.report_id_counter = 1
         self.daily_counter = 1
         
-        # Initialize AI models (lazy loading to avoid startup delay)
+        # Initialize AI models (lazy loading to avoid startup delay).
+        # Unused when config.INFERENCE_URL is set — the models then live on a
+        # separate host and these two calls go over HTTP instead. See
+        # deploy/SPLIT-DEPLOYMENT.md.
         self._summarizer = None
         self._sentence_model = None
         self._ai_available = True
+
+        # Remote-inference state. The Session is reused so a 50-article scrape
+        # does one TCP handshake instead of fifty.
+        self._inference_session = None
+        self._inference_failures = 0
+        self._inference_cooldown_until = 0.0
     
     def _get_summarizer(self):
         """Lazy load the AI summarization model"""
@@ -83,63 +101,156 @@ class EnhancedSOCReportFormatter:
                 self._sentence_model = False  # Mark as failed
         return self._sentence_model if self._sentence_model else None
     
+    def _inference_post(self, path: str, payload: dict) -> Optional[dict]:
+        """POST to the remote inference service, or None if it is unusable.
+
+        Returning None (rather than raising) keeps the existing contract: the
+        caller falls back to a non-AI summary for this one article and the scrape
+        continues.
+
+        Two deliberate choices about failure:
+
+        * `self._ai_available` is NOT flipped to False on a network error. That
+          flag means "the models could not be loaded in this process", and it is
+          sticky for the process lifetime — appropriate for a failed import, but
+          a single blip on a peered VPC link should not disable AI summaries
+          until someone restarts the dashboard.
+        * Instead, a run of consecutive failures opens a cooldown. A dead
+          inference box costs INFERENCE_FAILURE_LIMIT timeouts and then stops
+          being asked for INFERENCE_COOLDOWN_SECONDS, rather than costing one
+          timeout per article. It recovers on its own.
+        """
+        import time
+
+        now = time.monotonic()
+        if now < self._inference_cooldown_until:
+            return None
+
+        try:
+            import requests
+
+            if self._inference_session is None:
+                self._inference_session = requests.Session()
+                self._inference_session.headers.update(
+                    {
+                        "Authorization": f"Bearer {INFERENCE_TOKEN}",
+                        "Content-Type": "application/json",
+                    }
+                )
+
+            response = self._inference_session.post(
+                f"{INFERENCE_URL}{path}",
+                json=payload,
+                timeout=INFERENCE_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            self._inference_failures = 0
+            return data
+
+        except Exception as e:
+            self._inference_failures += 1
+            print(f"   ⚠️ Inference service call to {path} failed: {e}")
+
+            if self._inference_failures >= INFERENCE_FAILURE_LIMIT:
+                self._inference_cooldown_until = now + INFERENCE_COOLDOWN_SECONDS
+                self._inference_failures = 0
+                msg = (
+                    f"Inference service unreachable after {INFERENCE_FAILURE_LIMIT} "
+                    f"attempts ({e}). Falling back to non-AI summaries for "
+                    f"{INFERENCE_COOLDOWN_SECONDS}s."
+                )
+                print(f"   ⚠️ {msg}")
+                db.log_system_event('WARNING', msg, 'AI_FORMATTER')
+
+            return None
+
     def _ai_summarize_article(self, content: str, max_length: int = 150) -> Optional[str]:
         """Use AI to generate authentic summary from article content"""
         try:
-            summarizer = self._get_summarizer()
-            if not summarizer:
-                return None
-            
-            # Prepare content (BART works best with 500-1024 tokens)
+            # Prepare content (BART works best with 500-1024 tokens). Done here
+            # in both modes — it is regex and BeautifulSoup, so the inference box
+            # never needs this logic and never needs redeploying when it changes.
             content_clean = self.clean_article_content(content)
             if len(content_clean) < 100:
                 return None
-            
+
             # Truncate to reasonable length for summarization
             input_text = content_clean[:2000]
-            
+
+            if INFERENCE_URL:
+                data = self._inference_post(
+                    "/summarize",
+                    {
+                        "text": input_text,
+                        "max_length": max_length,
+                        "min_length": 50,
+                    },
+                )
+                return (data or {}).get("summary") or None
+
+            summarizer = self._get_summarizer()
+            if not summarizer:
+                return None
+
             # Generate summary
             summary = summarizer(input_text, max_length=max_length, min_length=50, do_sample=False)
-            
+
             if summary and len(summary) > 0:
                 return summary[0]['summary_text']
-            
+
             return None
-            
+
         except Exception as e:
             print(f"   ⚠️ AI summarization failed: {e}")
             db.log_system_event('WARNING', f'AI summarization error: {e}', 'AI_FORMATTER')
             return None
-    
+
     def _extract_relevant_sentences(self, content: str, query: str, top_k: int = 3) -> List[str]:
         """Use semantic similarity to extract most relevant sentences for a given query"""
         try:
+            # Clean and split content. Note this happens before either branch:
+            # the remote service ranks candidate sentences, it does not parse
+            # articles, so only the strings and the query cross the wire.
+            content_clean = self.clean_article_content(content)
+            sentences = self.extract_meaningful_sentences(content_clean, max_sentences=20)
+
+            if not sentences:
+                return []
+
+            if INFERENCE_URL:
+                data = self._inference_post(
+                    "/rank",
+                    {
+                        "query": query,
+                        "sentences": sentences,
+                        "top_k": top_k,
+                        "threshold": 0.3,
+                    },
+                )
+                ranked = (data or {}).get("sentences") or []
+                return [str(s) for s in ranked if str(s).strip()]
+
             model = self._get_sentence_model()
             if not model:
                 return []
-            
+
             import numpy as np
             from sklearn.metrics.pairwise import cosine_similarity
-            
-            # Clean and split content
-            content_clean = self.clean_article_content(content)
-            sentences = self.extract_meaningful_sentences(content_clean, max_sentences=20)
-            
-            if not sentences:
-                return []
-            
+
             # Encode query and sentences
             query_embedding = model.encode([query])
             sentence_embeddings = model.encode(sentences)
-            
+
             # Calculate similarity
             similarities = cosine_similarity(query_embedding, sentence_embeddings)[0]
-            
+
             # Get top K most similar sentences
             top_indices = np.argsort(similarities)[-top_k:][::-1]
-            
+
             return [sentences[i] for i in top_indices if similarities[i] > 0.3]  # Threshold
-            
+
         except Exception as e:
             print(f"   ⚠️ Semantic extraction failed: {e}")
             return []

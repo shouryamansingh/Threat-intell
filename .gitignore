@@ -88,5 +88,8 @@ Thumbs.db
 # .forbidden_terms.example is the committed template.
 .forbidden_terms
 
-# Local agent/tooling state
-.claude/settings.local.json
+# Local agent/tooling state. Both files carry machine-specific
+# additionalDirectories paths containing the developer's home directory, which
+# check_secrets.py refuses to publish — and which are meaningless in any other
+# clone. Ignore the whole directory rather than the .local.json alone.
+.claude/

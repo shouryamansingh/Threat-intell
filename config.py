@@ -370,6 +370,32 @@ INTERNAL_DASHBOARD_URL = (
     or f"http://127.0.0.1:{DASHBOARD_PORT}"
 )
 
+# ── Remote inference (split deployment) ──────────────────────────────────────
+# Unset (the default) means the summarisation and sentence-ranking models load
+# inside this process — how a laptop and the single-box deployment both work.
+# Set it, and only those two calls become HTTP requests to a box that holds the
+# models; article cleaning, sentence splitting and report assembly stay here.
+# See deploy/SPLIT-DEPLOYMENT.md.
+INFERENCE_URL = os.environ.get("TI_INFERENCE_URL", "").strip().rstrip("/")
+
+# Shared secret sent as `Authorization: Bearer <token>`. The inference service
+# has no other authentication, so this is required whenever INFERENCE_URL is set
+# — see validate_deployment() below.
+INFERENCE_TOKEN = os.environ.get("TI_INFERENCE_TOKEN", "").strip()
+
+# Seconds to wait on one inference call. bart-large-cnn on CPU is single-digit
+# seconds per article; the generous default absorbs a cold model load right after
+# a restart of the inference box without failing the article outright.
+INFERENCE_TIMEOUT = int(os.environ.get("TI_INFERENCE_TIMEOUT", "120"))
+
+# Consecutive failures before the client stops calling the inference service and
+# falls back to non-AI summaries for a cooldown. Without this, an inference box
+# that is down turns a 50-article scrape into 50 sequential timeouts — over an
+# hour of waiting to produce exactly the same output the fallback gives
+# immediately. The counter resets on any success.
+INFERENCE_FAILURE_LIMIT = int(os.environ.get("TI_INFERENCE_FAILURE_LIMIT", "3"))
+INFERENCE_COOLDOWN_SECONDS = int(os.environ.get("TI_INFERENCE_COOLDOWN", "300"))
+
 # Number of reverse proxies in front of the app. 0 means "no proxy" and the
 # app reads the peer address directly. Set to 1 behind a single nginx/ALB so
 # Flask resolves the real client IP from X-Forwarded-For. Setting this higher
@@ -441,6 +467,26 @@ BRAND = {
 }
 
 
+def _is_private_host(url: str) -> bool:
+    """True when `url`'s host is a private/loopback IP address.
+
+    Used to allow plain HTTP for the inference link: over a Lightsail↔VPC peering
+    connection the traffic never leaves AWS's network, so requiring TLS there
+    would mean issuing certificates for an RFC1918 address for no gain. A
+    hostname (rather than an IP) returns False — we cannot tell where it resolves,
+    so it is treated as public and must use HTTPS.
+    """
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = urlsplit(url).hostname or ""
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return addr.is_private or addr.is_loopback
+
+
 def validate_deployment():
     """Fail fast on misconfiguration that would otherwise show up as silently
     broken email links or an unreachable dashboard.
@@ -482,6 +528,24 @@ def validate_deployment():
             problems.append(
                 "TI_ALLOWED_EMAIL_DOMAINS is empty — the domain allowlist fails "
                 "closed, so every sign-in will be rejected."
+            )
+
+    # Checked in every environment, not just production: article text should not
+    # be posted to an endpoint that authenticates nobody, on a laptop either.
+    if INFERENCE_URL:
+        if not INFERENCE_TOKEN:
+            problems.append(
+                "TI_INFERENCE_URL is set but TI_INFERENCE_TOKEN is empty. The "
+                "inference service authenticates on that token alone, so this "
+                "would post article text to an open endpoint."
+            )
+        if IS_PRODUCTION and not (
+            INFERENCE_URL.startswith("https://") or _is_private_host(INFERENCE_URL)
+        ):
+            problems.append(
+                f"TI_INFERENCE_URL is {INFERENCE_URL!r} — plain HTTP to a host that "
+                "is not a private address. The bearer token would cross the public "
+                "internet in clear text. Use the peered private IP, or HTTPS."
             )
     return problems
 

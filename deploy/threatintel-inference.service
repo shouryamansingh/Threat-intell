@@ -1,0 +1,81 @@
+# Inference service — runs on the EC2 model box ONLY. Install to
+# /etc/systemd/system/
+#
+#   sudo cp deploy/threatintel-inference.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now threatintel-inference
+#
+# This box runs nothing else: no dashboard, no callback server, no scheduler, no
+# database. It holds two HuggingFace models and answers /summarize and /rank.
+# See deploy/SPLIT-DEPLOYMENT.md.
+
+[Unit]
+Description=Threat Intelligence inference service (summarisation + sentence ranking)
+Documentation=file:///opt/threatintel/deploy/SPLIT-DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=threatintel
+Group=threatintel
+WorkingDirectory=/opt/threatintel
+
+# Only three settings belong in this file: TI_INFERENCE_TOKEN, HF_HOME, and
+# optionally TI_INFERENCE_BIND_HOST. Deliberately NOT the application's env file
+# — this box has no reason to hold SMTP credentials, Firebase keys or the
+# database path, and keeping them off it means a compromise here yields nothing
+# but a news-article summariser.
+EnvironmentFile=/etc/threatintel/inference.env
+
+# Keep torch from oversubscribing the CPU. Each torch op is already internally
+# threaded; letting 2 gunicorn threads each spawn a full thread pool on a 2-vCPU
+# box makes summarisation slower, not faster.
+Environment=OMP_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+
+#   -w 1        EXACTLY ONE WORKER, non-negotiable. Each worker loads its own
+#               ~4.5 GB copy of the weights; two workers OOM-kill the box.
+#   --threads 2 the caller is a single sequential scraper, so this is headroom
+#               for a health check landing mid-summary, not real concurrency.
+#   --timeout 300
+#               inference_server.py loads both models at import, which takes
+#               30-60s cold. The default 30s timeout kills the worker mid-load
+#               and systemd restarts it forever.
+ExecStart=/opt/threatintel/.venv/bin/gunicorn \
+    --workers 1 \
+    --threads 2 \
+    --timeout 300 \
+    --graceful-timeout 60 \
+    --bind ${TI_INFERENCE_BIND_HOST}:${TI_INFERENCE_PORT} \
+    --access-logfile - \
+    --error-logfile - \
+    inference_server:app
+
+Restart=on-failure
+RestartSec=10s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=threatintel-inference
+
+# ── Hardening ────────────────────────────────────────────────────────────
+# Same posture as the dashboard unit. ProtectSystem=strict makes /opt/threatintel
+# read-only at runtime, which is why HF_HOME must point inside ReadWritePaths —
+# otherwise the model download fails and the service starts permanently
+# degraded (/health reports summarizer: false).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/threatintel
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
