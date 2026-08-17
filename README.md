@@ -146,9 +146,18 @@ selectors still match each site's homepage.
 
 ## Deploying
 
-See **[deploy/DEPLOY.md](deploy/DEPLOY.md)** for the full EC2 walkthrough: user
+Start with **[deploy/LIGHTSAIL.md](deploy/LIGHTSAIL.md)** — the recommended
+deployment. One AWS Lightsail instance runs everything: dashboard, callback
+server, scheduler, database and both models. It covers instance sizing, the
+model-cache setup that fails silently if skipped, and hands off to:
+
+**[deploy/DEPLOY.md](deploy/DEPLOY.md)** — the server walkthrough itself: user
 and directory layout, systemd units, nginx + TLS, egress requirements, database
-migration and backups.
+migration and backups. Applies to any Linux host, not just Lightsail.
+
+**[deploy/SPLIT-DEPLOYMENT.md](deploy/SPLIT-DEPLOYMENT.md)** is the two-box
+alternative — app on Lightsail, models on a separate EC2 instance. Only worth it
+if you stop the model box between scrapes.
 
 Before your first `git push`, read **[deploy/GITHUB.md](deploy/GITHUB.md)** and
 run:

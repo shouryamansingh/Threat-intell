@@ -9,8 +9,9 @@ itself — users, nginx, TLS, database migration, backups, Firebase. This file
 covers only what is *different* when the models live elsewhere. Read §1–§2 here,
 then do `DEPLOY.md` for the app box, then come back for §5–§7.
 
-For the single-box alternative, see `AWS-DEPLOYMENT-PLAN.md` §3. Read §8 of this
-file before choosing — the split is not automatically cheaper.
+For the single-box alternative — which is the recommended deployment — see
+`LIGHTSAIL.md`. Read §8 of this file before choosing: the split is not
+automatically cheaper.
 
 ---
 
@@ -49,7 +50,7 @@ means redeploying the model box.
 
 ## 2. Why these sizes
 
-**EC2 — 8 GB, and not burstable.** `AWS-DEPLOYMENT-PLAN.md` §3.1 measured the
+**EC2 — 8 GB, and not burstable.** `LIGHTSAIL.md` §1 measured the
 model-holding process at 3.5–4.5 GB peak RSS. Removing the Flask app from that
 process saves a few hundred MB, not gigabytes: the weights dominate. With OS
 overhead that is ~5 GB, so `t3.medium` (4 GB) still OOM-kills mid-scrape.
@@ -93,9 +94,15 @@ publicly.
 
 ## 4. Build the model box (EC2)
 
-Launch per `AWS-DEPLOYMENT-PLAN.md` §3.2, with these changes: **`m6i.large`**,
-Ubuntu 24.04 LTS x86_64, 30 GB gp3, **in the region's default VPC**, and no
-public HTTP/HTTPS rules.
+EC2 console → **Launch an instance**: name `threatintel-models`, AMI **Ubuntu
+24.04 LTS x86_64**, type **`m6i.large`** (or `m6a.large` — AMD, same specs,
+slightly cheaper, runs torch identically), **30 GB gp3** root volume, **in the
+region's default VPC** (§3 explains why), and an ED25519 `.pem` key pair. No
+public HTTP/HTTPS rules — the security group below is the whole ingress story.
+
+Avoid `c6i.large`: compute-optimised means 2 GB per vCPU, so it is only 4 GB and
+will OOM. Avoid Graviton/ARM (`m7g`, `t4g`) here — `requirements-inference.txt`
+pins `torch==2.9.0` and the aarch64 wheel story is an avoidable variable.
 
 **Security group — the only inbound rule:**
 
@@ -299,7 +306,7 @@ Approximate monthly, on-demand — **check current pricing for your region**:
 | EC2 `m6i.large` | ~$70 | the models |
 | 30 GB gp3 on EC2 | ~$2.40 | persists while the instance is stopped |
 | **Split total** | **~$84** | |
-| Single `m6i.large` | ~$70 | `AWS-DEPLOYMENT-PLAN.md` §3 |
+| Single Lightsail 8 GB | ~$44 | `LIGHTSAIL.md` — one box, everything on it |
 
 **Run both boxes 24/7 and the split costs more than the single box, for more
 moving parts.** There is no way around that: the expensive component is the
@@ -331,11 +338,11 @@ Either way the circuit breaker in §7 is what keeps a not-yet-booted model box
 from stalling a scrape.
 
 **Worth knowing before you build any of this:** replacing these two local models
-with the Claude API (`AWS-DEPLOYMENT-PLAN.md` D2 §5) removes the 8 GB instance
-entirely rather than scheduling around it — the app then fits the same 2 GB
-Lightsail box for ~$12/month plus a few dollars of API usage, with one box to
-operate instead of two. This split is the right build if you need the models to
-stay on infrastructure you control. If you don't, do §5 of that plan instead.
+with a hosted API (`LIGHTSAIL.md` §12) removes the 8 GB instance entirely rather
+than scheduling around it — the app then fits the same 2 GB Lightsail box for
+~$12/month plus a few dollars of API usage, with one box to operate instead of
+two. This split is the right build if you need the models to stay on
+infrastructure you control. If you don't, do §12 of that guide instead.
 
 ---
 
