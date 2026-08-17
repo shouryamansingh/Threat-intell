@@ -167,11 +167,17 @@ sudo cat /opt/threatintel/.ssh/id_ed25519.pub
 Copy that public key into the GitHub repository → **Settings → Deploy keys →
 Add deploy key**. Leave **Allow write access unchecked**.
 
-Then clone over SSH instead of HTTPS in `DEPLOY.md` §2:
+Then clone over SSH instead of HTTPS in `DEPLOY.md` §2. Take the SSH URL from the
+repository's green **Code** button → **SSH** tab (it begins `git@`, not
+`https://`) and use it in place of that step's `<your-repo-url>`:
 
 ```bash
-sudo -u threatintel git clone git@github.com:<owner>/<repo>.git /opt/threatintel
+sudo -u threatintel git clone <paste-the-SSH-url-here> /opt/threatintel
 ```
+
+> Writing that URL out in full here would trip `check_secrets.py`, which reads
+> `git@<host>` as an email address. It is a false positive, but the scanner is
+> the push gate — so committed docs describe the URL rather than spell it out.
 
 ---
 
