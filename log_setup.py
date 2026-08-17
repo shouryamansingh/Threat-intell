@@ -18,8 +18,13 @@ Usage — first thing in an entry point, before other project imports log anythi
 Environment:
     TI_LOG_DIR    directory for log files      (default: <project>/logs)
     TI_LOG_LEVEL  DEBUG/INFO/WARNING/ERROR     (default: INFO)
-    TI_LOG_MAX_MB size per file before rotating (default: 10)
-    TI_LOG_BACKUPS  rotated files to keep       (default: 5)
+    TI_LOG_MAX_MB size per file before rotating (default: 5)
+    TI_LOG_BACKUPS  rotated files to keep       (default: 3)
+
+Worst-case disk is (MAX_MB × (BACKUPS + 1)) per component, so the defaults cap
+each component at 20 MB and the whole logs/ directory at well under 100 MB —
+sized for a small cloud volume rather than a workstation. Raise TI_LOG_BACKUPS
+where the disk is cheap and the history matters more.
 """
 
 import os
@@ -86,8 +91,8 @@ def setup_logging(component: str) -> logging.Logger:
         path = os.path.join(log_dir(), f"{component}.log")
         file_handler = RotatingFileHandler(
             path,
-            maxBytes=_int_env("TI_LOG_MAX_MB", 10) * 1024 * 1024,
-            backupCount=_int_env("TI_LOG_BACKUPS", 5),
+            maxBytes=_int_env("TI_LOG_MAX_MB", 5) * 1024 * 1024,
+            backupCount=_int_env("TI_LOG_BACKUPS", 3),
             encoding="utf-8",
         )
         file_handler.setFormatter(formatter)

@@ -11,6 +11,12 @@ from config import DATABASE_PATH
 
 logger = logging.getLogger(__name__)
 
+# Ceiling for the SQLite -wal sidecar, applied as journal_size_limit at connect
+# time. 64 MB is far above any burst this workload produces, so it never forces
+# an expensive mid-write truncation — it only stops the file idling at a size a
+# one-off backlog pushed it to.
+WAL_SIZE_LIMIT_BYTES = 64 * 1024 * 1024
+
 
 def parse_keywords(raw):
     """Read back a news_articles.keywords value.
@@ -57,7 +63,18 @@ class ThreatIntelDB:
             print(f"⚠️  WAL pragma failed: {e}")
         # Give writers up to 30s to acquire the lock instead of erroring instantly
         cursor.execute("PRAGMA busy_timeout=30000")
-        
+
+        # Cap the WAL sidecar. Without this, -wal grows to whatever the largest
+        # burst needed (a full scrape writing hundreds of rows) and then STAYS
+        # that size forever — checkpointing reuses the space rather than
+        # returning it. On a small cloud volume that idle file is pure waste.
+        # Like journal_mode, this is persistent once set.
+        try:
+            cursor.execute(f"PRAGMA journal_size_limit={WAL_SIZE_LIMIT_BYTES}")
+        except Exception as e:
+            print(f"⚠️  journal_size_limit pragma failed: {e}")
+
+
         # News articles table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS news_articles (
@@ -683,26 +700,52 @@ class ThreatIntelDB:
         conn.close()
         return stats
     
-    def cleanup_old_records(self, days: int = 90):
-        """Delete records older than `days`, and report what went.
+    def cleanup_old_records(self, days: int = 90, audit_days: int = None,
+                            session_days: int = None, content_days: int = None,
+                            vacuum: bool = True):
+        """Prune everything that grows without bound, and report what went.
 
         Scheduled daily by scheduler.setup_log_retention. Before that it existed
         but was never called from anywhere, so nothing in the database was ever
         pruned — and activity_log was not covered here at all.
 
-        Returns a dict of table → rows deleted.
+        Four windows rather than one, because these rows are not equally
+        disposable:
+
+          days          logs and rejected articles — pure noise once read
+          audit_days    who approved what and when it shipped — an audit answer,
+                        kept far longer, and never swept while still in flight
+          session_days  scrape bookkeeping and its per-article join rows
+          content_days  the article *body* only; the row itself survives
+
+        Also sweeps orphans. The join and audit tables reference news_articles
+        and scraping_sessions but SQLite does not enforce those foreign keys by
+        default, so deleting a parent used to strand its children permanently —
+        which is how scraping_session_articles became the largest table in the
+        database while news_articles sat at zero rows.
+
+        Returns a dict of table → rows affected.
         """
+        # Fall back to the log window for anything not explicitly given, so an
+        # older caller passing only `days` still gets a full sweep.
+        audit_days = days if audit_days is None else audit_days
+        session_days = days if session_days is None else session_days
+        content_days = days if content_days is None else content_days
+
         deleted = {}
         conn = sqlite3.connect(self.db_path, timeout=30)
         try:
             conn.execute("PRAGMA busy_timeout=30000")
             cursor = conn.cursor()
 
-            # Parameterised rather than %-formatted: `days` reaches this from a
-            # config value, and datetime() accepts a bound modifier string just
-            # as well as a literal one.
+            # Parameterised rather than %-formatted: these reach this from
+            # config values, and datetime() accepts a bound modifier string
+            # just as well as a literal one.
             modifier = f'-{int(days)} days'
+            audit_modifier = f'-{int(audit_days)} days'
+            session_modifier = f'-{int(session_days)} days'
 
+            # ── Logs: the disposable window ─────────────────────────────────
             cursor.execute('''
                 DELETE FROM news_articles
                 WHERE status = 'rejected'
@@ -724,16 +767,138 @@ class ThreatIntelDB:
             ''', (modifier,))
             deleted['activity_log'] = cursor.rowcount
 
+            # ── Audit trail: the long window, terminal rows only ────────────
+            # A delivery still pending/sending/scheduled is future work, not
+            # history: it survives no matter how old it is. Sweeping one would
+            # silently cancel a queued send. delivery_date is NULL until a row
+            # actually goes out, hence the COALESCE onto created_at.
+            cursor.execute('''
+                DELETE FROM soc_deliveries
+                WHERE status IN ('sent', 'failed', 'cancelled')
+                AND COALESCE(delivery_date, created_at) < datetime('now', ?)
+            ''', (audit_modifier,))
+            deleted['soc_deliveries'] = cursor.rowcount
+
+            cursor.execute('''
+                DELETE FROM manager_approvals
+                WHERE decision_date < datetime('now', ?)
+            ''', (audit_modifier,))
+            deleted['manager_approvals'] = cursor.rowcount
+
+            cursor.execute('''
+                DELETE FROM sender_validations
+                WHERE validation_date < datetime('now', ?)
+            ''', (audit_modifier,))
+            deleted['sender_validations'] = cursor.rowcount
+
+            # ── Scrape bookkeeping ──────────────────────────────────────────
+            # Join rows first, then their parents: the reverse order would make
+            # every one of them an orphan for the length of this function.
+            cursor.execute('''
+                DELETE FROM scraping_session_articles
+                WHERE scraped_at < datetime('now', ?)
+            ''', (session_modifier,))
+            deleted['scraping_session_articles'] = cursor.rowcount
+
+            cursor.execute('''
+                DELETE FROM scraping_sessions
+                WHERE session_date < datetime('now', ?)
+            ''', (session_modifier,))
+            deleted['scraping_sessions'] = cursor.rowcount
+
+            # ── Orphans: children whose parent is already gone ──────────────
+            # Includes anything stranded by the deletes above, plus the backlog
+            # left by every delete that ran before this sweep existed.
+            cursor.execute('''
+                DELETE FROM scraping_session_articles
+                WHERE session_id NOT IN (SELECT id FROM scraping_sessions)
+                   OR article_id NOT IN (SELECT id FROM news_articles)
+            ''')
+            deleted['orphaned_session_articles'] = cursor.rowcount
+
+            # A delivery whose article no longer exists can never be sent — the
+            # poller would pick it up and fail on the missing join every run.
+            # Status is deliberately not checked here: unlike the audit sweep
+            # above, there is no future work to protect.
+            cursor.execute('''
+                DELETE FROM soc_deliveries
+                WHERE article_id NOT IN (SELECT id FROM news_articles)
+            ''')
+            deleted['orphaned_deliveries'] = cursor.rowcount
+
+            cursor.execute('''
+                DELETE FROM manager_approvals
+                WHERE article_id NOT IN (SELECT id FROM news_articles)
+            ''')
+            deleted['orphaned_approvals'] = cursor.rowcount
+
+            cursor.execute('''
+                DELETE FROM sender_validations
+                WHERE article_id NOT IN (SELECT id FROM news_articles)
+            ''')
+            deleted['orphaned_validations'] = cursor.rowcount
+
+            # ── Article bodies ──────────────────────────────────────────────
+            # The single largest column in the schema. Blanking it keeps the
+            # title, URL, score and every audit row that points at this article
+            # intact — only the full scraped text goes. 0 disables.
+            if int(content_days) > 0:
+                cursor.execute('''
+                    UPDATE news_articles
+                    SET content = NULL
+                    WHERE content IS NOT NULL AND content != ''
+                    AND created_at < datetime('now', ?)
+                ''', (f'-{int(content_days)} days',))
+                deleted['article_bodies_blanked'] = cursor.rowcount
+
             conn.commit()
         finally:
             conn.close()
 
         total = sum(deleted.values())
         if total:
-            logger.info(f"Retention sweep removed {total} rows older than {days} days: {deleted}")
+            # Drop the zeros — a sweep touching two tables should not print
+            # eleven "0"s into the log every single night.
+            summary = {k: v for k, v in deleted.items() if v}
+            logger.info(f"Retention sweep affected {total} rows: {summary}")
         else:
-            logger.info(f"Retention sweep found nothing older than {days} days")
+            logger.info("Retention sweep found nothing to remove")
+
+        # Reclaim the freed pages. SQLite hands deleted pages back to its own
+        # freelist, not to the filesystem — without this the .db file only ever
+        # sits at its high-water mark, and the sweep above frees space the disk
+        # never sees. Gated on having actually deleted something, because
+        # VACUUM rewrites the whole file and takes an exclusive lock.
+        if total and vacuum:
+            self.vacuum(reason='retention sweep')
+
         return deleted
+
+    def vacuum(self, reason: str = 'manual'):
+        """Rebuild the database file, returning freed pages to the filesystem.
+
+        Returns bytes reclaimed (0 if it could not run). Never raises: this is
+        housekeeping, and a failed VACUUM must not take down the caller — the
+        nightly sweep's actual work is already committed by the time it runs.
+        """
+        import os
+        try:
+            size_before = os.path.getsize(self.db_path)
+            # isolation_level=None keeps sqlite3 from opening a transaction
+            # around the statement; VACUUM cannot run inside one.
+            conn = sqlite3.connect(self.db_path, timeout=60, isolation_level=None)
+            try:
+                conn.execute("PRAGMA busy_timeout=60000")
+                conn.execute("VACUUM")
+            finally:
+                conn.close()
+            freed = size_before - os.path.getsize(self.db_path)
+            if freed > 0:
+                logger.info(f"VACUUM ({reason}) reclaimed {freed / 1024:.1f} KB")
+            return max(freed, 0)
+        except Exception as e:
+            logger.warning(f"VACUUM ({reason}) failed, database left as-is: {e}")
+            return 0
     
     def create_hash(self, text: str) -> str:
         """Create SHA256 hash of text for duplicate detection"""

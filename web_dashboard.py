@@ -3274,11 +3274,16 @@ def api_admin_cache_clear():
 
     Targets:
       workflow_state    — wipe news_articles + manager_approvals + soc_deliveries
-                          + sender_validations (fresh start, doesn't scrape)
+                          + sender_validations + their session join rows
+                          (fresh start, doesn't scrape)
       activity_logs     — wipe system_logs (free up most of the bloat)
-      scraping_sessions — wipe scraping_sessions metadata
+      scraping_sessions — wipe scraping_sessions metadata + its join rows
+      retention_sweep   — run the nightly age-based sweep now (keeps recent data)
       pycache           — remove every __pycache__ dir under the project root
       vacuum_db         — run VACUUM to reclaim free pages on disk
+
+    The wipe targets are blunt — they delete regardless of age. retention_sweep
+    is the one to reach for on a live system.
     """
     import shutil
     payload = request.get_json(silent=True) or {}
@@ -3296,27 +3301,44 @@ def api_admin_cache_clear():
                         "message": f"Removed {removed} __pycache__ director{'y' if removed == 1 else 'ies'}"})
 
     if target == "vacuum_db":
-        try:
-            size_before = os.path.getsize(db.db_path)
-            conn = sqlite3.connect(db.db_path, timeout=30)
-            conn.execute("PRAGMA busy_timeout=30000")
-            conn.execute("VACUUM")
-            conn.close()
-            size_after = os.path.getsize(db.db_path)
-            freed_kb = round((size_before - size_after) / 1024, 1)
-            return jsonify({"status": "success", "target": target,
-                            "message": f"Database vacuumed ({freed_kb} KB reclaimed)"})
-        except Exception as e:
-            return jsonify({"status": "error", "message": f"VACUUM failed: {e}"}), 500
+        # Delegates to db.vacuum() rather than repeating the VACUUM here, so
+        # the manual button and the nightly sweep cannot drift apart.
+        freed_kb = round(db.vacuum(reason='admin') / 1024, 1)
+        return jsonify({"status": "success", "target": target,
+                        "message": f"Database vacuumed ({freed_kb} KB reclaimed)"})
 
+    if target == "retention_sweep":
+        # The same sweep the scheduler runs at 03:40, on demand — for a first
+        # deploy, where waiting a night to clear an existing backlog is silly.
+        try:
+            deleted = db.cleanup_old_records(
+                days=config.LOG_RETENTION_DAYS,
+                audit_days=config.AUDIT_RETENTION_DAYS,
+                session_days=config.SESSION_RETENTION_DAYS,
+                content_days=config.ARTICLE_CONTENT_RETENTION_DAYS,
+            )
+            summary = {k: v for k, v in deleted.items() if v}
+            total = sum(deleted.values())
+            db.log_system_event('INFO', f"Admin ran retention sweep ({total} rows)", 'ADMIN')
+            return jsonify({"status": "success", "target": target, "detail": summary,
+                            "message": f"Retention sweep affected {total} row{'' if total == 1 else 's'}"
+                                       + (f": {summary}" if summary else "")})
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Retention sweep failed: {e}"}), 500
+
+    # scraping_session_articles rides along with both targets that delete its
+    # parents. Leaving it out is what stranded 1600+ join rows pointing at
+    # articles and sessions that no longer existed.
     table_targets = {
-        "workflow_state":    ["sender_validations", "soc_deliveries", "manager_approvals", "news_articles"],
+        "workflow_state":    ["scraping_session_articles", "sender_validations",
+                              "soc_deliveries", "manager_approvals", "news_articles"],
         "activity_logs":     ["system_logs"],
-        "scraping_sessions": ["scraping_sessions"],
+        "scraping_sessions": ["scraping_session_articles", "scraping_sessions"],
     }
     if target not in table_targets:
         return jsonify({"status": "error",
-                        "message": f"Unknown target {target!r}. Allowed: workflow_state, activity_logs, scraping_sessions, pycache, vacuum_db"}), 400
+                        "message": f"Unknown target {target!r}. Allowed: workflow_state, activity_logs, "
+                                   f"scraping_sessions, retention_sweep, pycache, vacuum_db"}), 400
 
     try:
         conn = sqlite3.connect(db.db_path, timeout=30)

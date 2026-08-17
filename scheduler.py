@@ -116,12 +116,14 @@ class ThreatIntelScheduler:
         logger.info("✅ Health monitoring scheduled (startup + every 6 hours)")
 
     def setup_log_retention(self):
-        """Prune logs and old rejected articles once a day, at 03:40 local.
+        """Prune every unbounded table once a day, at 03:40 local.
 
         db.cleanup_old_records has existed since the beginning but nothing ever
-        called it, so system_logs and activity_log grew without bound. Runs in
-        the small hours so the write lock never competes with a scrape or a
-        delivery.
+        called it, so system_logs and activity_log grew without bound. It now
+        also sweeps the audit trail, scrape bookkeeping, orphaned child rows and
+        stale article bodies, then VACUUMs to hand the freed pages back to the
+        filesystem. Runs in the small hours so its write lock — and the
+        exclusive lock VACUUM takes — never competes with a scrape or delivery.
         """
         self.scheduler.add_job(
             func=self.run_log_retention,
@@ -138,13 +140,19 @@ class ThreatIntelScheduler:
     def run_log_retention(self):
         """Execute the retention sweep, recording the outcome in system_logs."""
         try:
-            deleted = db.cleanup_old_records(days=config.LOG_RETENTION_DAYS)
+            deleted = db.cleanup_old_records(
+                days=config.LOG_RETENTION_DAYS,
+                audit_days=config.AUDIT_RETENTION_DAYS,
+                session_days=config.SESSION_RETENTION_DAYS,
+                content_days=config.ARTICLE_CONTENT_RETENTION_DAYS,
+            )
             total = sum(deleted.values())
             if total:
+                # Zeros are noise in a dashboard feed; only name what moved.
+                summary = {k: v for k, v in deleted.items() if v}
                 db.log_system_event(
                     'INFO',
-                    f"Retention sweep removed {total} rows older than "
-                    f"{config.LOG_RETENTION_DAYS} days ({deleted})",
+                    f"Retention sweep affected {total} rows ({summary})",
                     'RETENTION'
                 )
         except Exception as e:

@@ -219,6 +219,26 @@ SOC_DELIVERY_DELAY_HOURS = 0  # Hours to wait before sending first approved news
 # Enforced daily by scheduler.setup_log_retention.
 LOG_RETENTION_DAYS = int(os.environ.get("TI_LOG_RETENTION_DAYS", "90"))
 
+# How long the workflow *audit trail* is kept: soc_deliveries, manager_approvals
+# and sender_validations. Deliberately far longer than LOG_RETENTION_DAYS —
+# these rows answer "who approved this, and when did it go out", which is the
+# question an audit asks months later. Only rows in a terminal state are ever
+# swept; anything still pending/scheduled survives regardless of age.
+AUDIT_RETENTION_DAYS = int(os.environ.get("TI_AUDIT_RETENTION_DAYS", "365"))
+
+# How long the full scraped article body (news_articles.content) is kept. This
+# column is by far the largest thing in the database — several KB per article,
+# against a few hundred bytes for everything else on the row. After this window
+# the body is blanked but the row stays, so titles, URLs, scores and the
+# delivery history that references them all keep working. 0 disables blanking.
+ARTICLE_CONTENT_RETENTION_DAYS = int(
+    os.environ.get("TI_ARTICLE_CONTENT_RETENTION_DAYS", "180")
+)
+
+# How long scraping_sessions metadata rows are kept. Their per-article join
+# rows (scraping_session_articles) go with them, plus any already orphaned.
+SESSION_RETENTION_DAYS = int(os.environ.get("TI_SESSION_RETENTION_DAYS", "90"))
+
 # Testing Configuration
 TESTING_MODE = False  # Set to True for immediate testing
 
