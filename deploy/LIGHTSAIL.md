@@ -155,13 +155,16 @@ to this one repository, revocable — rather than putting a personal access toke
 on a server.
 
 After creating the `threatintel` service account (`DEPLOY.md` §1) and before
-cloning:
+cloning, generate the key **in `/etc/threatintel`, not in the service account's
+home**. `git clone` refuses to write into a non-empty directory, so a `.ssh`
+directory sitting inside `/opt/threatintel` would break the clone that follows.
 
 ```bash
-sudo -u threatintel mkdir -p /opt/threatintel/.ssh
-sudo -u threatintel ssh-keygen -t ed25519 -N "" \
-  -f /opt/threatintel/.ssh/id_ed25519
-sudo cat /opt/threatintel/.ssh/id_ed25519.pub
+sudo ssh-keygen -t ed25519 -N "" -C "threatintel-deploy" \
+  -f /etc/threatintel/deploy_key
+sudo chown threatintel:threatintel /etc/threatintel/deploy_key*
+sudo chmod 600 /etc/threatintel/deploy_key
+sudo cat /etc/threatintel/deploy_key.pub
 ```
 
 Copy that public key into the GitHub repository → **Settings → Deploy keys →
@@ -172,12 +175,26 @@ repository's green **Code** button → **SSH** tab (it begins `git@`, not
 `https://`) and use it in place of that step's `<your-repo-url>`:
 
 ```bash
-sudo -u threatintel git clone <paste-the-SSH-url-here> /opt/threatintel
+sudo -u threatintel env \
+  GIT_SSH_COMMAND="ssh -i /etc/threatintel/deploy_key -o StrictHostKeyChecking=accept-new" \
+  git clone <paste-the-SSH-url-here> /opt/threatintel
 ```
 
-> Writing that URL out in full here would trip `check_secrets.py`, which reads
-> `git@<host>` as an email address. It is a false positive, but the scanner is
-> the push gate — so committed docs describe the URL rather than spell it out.
+`StrictHostKeyChecking=accept-new` matters: without it the first connection stops
+to ask whether to trust GitHub's host key, and under `sudo -u` there is no
+terminal to answer on — the clone appears to hang.
+
+Then pin the key into the repository's own config, so later `git pull`s (§10) do
+not need the environment variable:
+
+```bash
+sudo -u threatintel git -C /opt/threatintel config \
+  core.sshCommand "ssh -i /etc/threatintel/deploy_key"
+```
+
+> The SSH URL is described rather than spelled out because `check_secrets.py`
+> reads `git@<host>` as an email address and blocks the push. It is a false
+> positive, but the scanner is the gate.
 
 ---
 
