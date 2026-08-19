@@ -166,8 +166,21 @@ class EnhancedSOCReportFormatter:
 
             return None
 
-    def _ai_summarize_article(self, content: str, max_length: int = 150) -> Optional[str]:
-        """Use AI to generate authentic summary from article content"""
+    def _ai_summarize_article(self, content: str, max_length: int = 150,
+                              focus: Optional[str] = None) -> Optional[str]:
+        """Summarise an article, optionally steered toward a question.
+
+        `focus` is the fix for summaries that were technically accurate and
+        practically useless. Handed a raw article, BART summarises what the
+        article leads with — and security reporting leads with background. A
+        report would open "Ray is an open-source, Python-native distributed
+        computing framework..." and never mention the browser RCE that made it
+        news.
+
+        With a focus question the sentence-ranking model picks the sentences
+        that answer it, and only those reach the summariser. The two models
+        cooperate instead of working on separate parts of the page.
+        """
         try:
             # Prepare content (BART works best with 500-1024 tokens). Done here
             # in both modes — it is regex and BeautifulSoup, so the inference box
@@ -179,13 +192,32 @@ class EnhancedSOCReportFormatter:
             # Truncate to reasonable length for summarization
             input_text = content_clean[:2000]
 
+            if focus:
+                ranked = self._extract_relevant_sentences(content_clean, focus, top_k=6)
+                focused = ' '.join(ranked).strip()
+                # Only swap in the focused text when there is enough of it to
+                # summarise. Below that the model has nothing to compress and
+                # starts padding by copying, which is the behaviour we are
+                # trying to get away from.
+                if len(focused) >= 300:
+                    input_text = focused[:2000]
+
+            # Scale the floor to the input. A fixed min_length of 50 tokens
+            # against a short article forces BART to pad, and it pads by
+            # copying its input verbatim — which is how three sentences of the
+            # article ended up reproduced as the "summary".
+            approx_words = max(1, len(input_text.split()))
+            min_len = max(20, min(50, approx_words // 3))
+            if min_len >= max_length:
+                min_len = max(15, max_length // 3)
+
             if INFERENCE_URL:
                 data = self._inference_post(
                     "/summarize",
                     {
                         "text": input_text,
                         "max_length": max_length,
-                        "min_length": 50,
+                        "min_length": min_len,
                     },
                 )
                 return (data or {}).get("summary") or None
@@ -195,7 +227,7 @@ class EnhancedSOCReportFormatter:
                 return None
 
             # Generate summary
-            summary = summarizer(input_text, max_length=max_length, min_length=50, do_sample=False)
+            summary = summarizer(input_text, max_length=max_length, min_length=min_len, do_sample=False)
 
             if summary and len(summary) > 0:
                 return summary[0]['summary_text']
@@ -425,7 +457,10 @@ class EnhancedSOCReportFormatter:
             return f"{title}. Please refer to the original article for complete details.", quality_score
         
         # TRY AI SUMMARIZATION FIRST (most authentic)
-        ai_summary = self._ai_summarize_article(clean_content, max_length=130)
+        ai_summary = self._ai_summarize_article(
+            clean_content, max_length=130,
+            focus="What is the vulnerability, what can an attacker do by exploiting it, "
+                  "and what is the impact on affected systems?")
         if ai_summary and len(ai_summary.strip()) > 50:
             print(f"   🤖 AI-generated authentic summary: {ai_summary[:80]}...")
             # Ensure proper ending
@@ -471,7 +506,10 @@ class EnhancedSOCReportFormatter:
         clean_content = self.clean_article_content(content)
         
         # TRY AI SUMMARIZATION FIRST (longer version for description)
-        ai_description = self._ai_summarize_article(clean_content, max_length=250)
+        ai_description = self._ai_summarize_article(
+            clean_content, max_length=250,
+            focus="Which product and versions are affected, how does the attack work "
+                  "in practice, and what patch or mitigation is available?")
         if ai_description and len(ai_description.strip()) > 100:
             print(f"   🤖 AI-generated detailed description: {ai_description[:80]}...")
             if not ai_description.endswith(('.', '!', '?')):
@@ -973,29 +1011,56 @@ class EnhancedSOCReportFormatter:
 
         return "Refer to the source advisory for the specific affected products and versions."
 
+    # Words that are never a product name: agencies, verbs, and severity
+    # adjectives. Used to walk backwards off a vulnerability noun until the
+    # product is reached.
+    _TITLE_NOISE = {
+        'cisa', 'fbi', 'nsa', 'cert-in', 'nist', 'microsoft', 'google', 'apple',
+        'adobe', 'new', 'critical', 'high-severity', 'maximum-severity',
+        'max-severity', 'severity', 'active', 'actively', 'exploited',
+        'exploit', 'warns', 'warn', 'warning', 'flags', 'flag', 'confirms',
+        'reports', 'discloses', 'of', 'the', 'a', 'an', 'in', 'on', 'for',
+        'patch', 'patches', 'patched', 'update', 'updates', 'updated',
+        'hackers', 'researchers', 'attackers', 'reportedly', 'now', 'multiple',
+        'several', 'urgent', 'alert', 'under', 'amid', 'as', 'after',
+    }
+
+    _VULN_NOUNS = re.compile(
+        r'^(?:flaws?|vulnerabilit\w*|bugs?|rce|zero-?days?|0-?days?|defects?|'
+        r'exploits?|exploited|weakness(?:es)?)$',
+        re.IGNORECASE,
+    )
+
     def _product_from_title(self, title: str) -> Optional[str]:
         """Best-effort product name from a headline, e.g.
-        'CISA Warns of Actively Exploited Joomla JCE Flaw ...' -> 'Joomla JCE'."""
+        'CISA Warns of Actively Exploited Joomla JCE Flaw ...' -> 'Joomla JCE'.
+
+        Walks BACKWARDS from each vulnerability noun, collecting words until it
+        hits a noise word. Splitting forwards on the first vulnerability noun —
+        which is what this did before — throws the product away whenever the
+        headline says "Actively Exploited <Product> Flaw": "Exploited" matches
+        first, so "CISA Flags Actively Exploited Ray Flaw" yielded the words
+        "Flags Actively" instead of "Ray".
+        """
         if not title:
             return None
         head = self._strip_article_numbering(title)
-        # The product usually precedes the vulnerability noun.
-        m = re.search(r'(.*?)\s+(?:flaws?|vulnerabilit|bugs?|rce|zero-?days?|exploit|0-?days?|defects?)',
-                      head, re.IGNORECASE)
-        if m:
-            head = m.group(1)
-        # Strip leading source/agency/verb noise, repeatedly.
-        noise = (r'(?:cisa|fbi|nsa|cert-in|microsoft|google|apple|adobe|new|critical|'
-                 r'high-severity|max(?:imum)?-?severity|active(?:ly)?|exploited|warns?|warning|'
-                 r'of|the|a|an|patch(?:es|ed)?|update[sd]?|hackers?|researchers?|attackers?|'
-                 r'reportedly|now|multiple|several)')
-        prev = None
-        while prev != head:
-            prev = head
-            head = re.sub(rf'^{noise}\b[\s:,\-]*', '', head, flags=re.IGNORECASE).strip()
-        pm = re.search(r"[A-Z][\w.\-]*(?:\s+[A-Z0-9][\w.\-]*){0,3}", head)
-        prod = pm.group(0).strip(' ,.:;-') if pm else ''
-        return prod if 3 <= len(prod) <= 60 else None
+        tokens = [t for t in re.split(r'\s+', head) if t]
+
+        for i, tok in enumerate(tokens):
+            if not self._VULN_NOUNS.match(tok.strip(' ,.:;-\u2019\'"')):
+                continue
+            # Collect up to 4 words immediately before it, stopping at noise.
+            words = []
+            for j in range(i - 1, max(-1, i - 5), -1):
+                w = tokens[j].strip(' ,.:;-\u2019\'"')
+                if not w or w.lower() in self._TITLE_NOISE:
+                    break
+                words.insert(0, w)
+            prod = ' '.join(words).strip(' ,.:;-')
+            if 3 <= len(prod) <= 60:
+                return prod
+        return None
 
     @staticmethod
     def _extract_affected_product(content: str) -> Optional[str]:
