@@ -388,6 +388,19 @@
       font-size: 11px; color: var(--slate-400); margin-top: 6px;
     }
 
+    /* Env-pinned fields. The panel writes admin_settings.json; a TI_* variable
+       overrides it on read, so editing here would save and do nothing. Shown
+       disabled with the reason instead. */
+    .field.locked label { opacity: .75; }
+    .field.locked input,
+    .field.locked textarea,
+    .field.locked select {
+      background: var(--slate-100, #f1f5f9);
+      cursor: not-allowed;
+      opacity: .7;
+    }
+    .field .locked-hint { color: var(--slate-500, #64748b); font-weight: 500; }
+
     /* Weekday chips */
     .weekday-row {
       display: flex; flex-wrap: wrap; gap: 6px;
@@ -942,6 +955,20 @@
           input = `<input id="f-${field.name}" type="text" data-name="${field.name}" value="${escapeHtml(value)}">`;
       }
       const hint = field.hint ? `<div class="hint">${escapeHtml(field.hint)}</div>` : '';
+      // A field the server reports as env-pinned cannot be changed here: the panel
+      // writes admin_settings.json and the environment overrides it on read. Show
+      // it disabled with the reason, rather than accepting an edit that silently
+      // has no effect.
+      if (field.locked) {
+        input = input
+          .replace(/<input /g, '<input disabled ')
+          .replace(/<textarea /g, '<textarea disabled ')
+          .replace(/<select /g, '<select disabled ')
+          .replace(/<button /g, '<button disabled ');
+        const why = field.locked_reason || 'Set by an environment variable on this server.';
+        return `<div class="field locked">${label}${input}` +
+               `<div class="hint locked-hint">\u{1F512} ${escapeHtml(why)}</div>${hint}</div>`;
+      }
       return `<div class="field">${label}${input}${hint}</div>`;
     }
 
@@ -1002,6 +1029,7 @@
     function collect() {
       const out = {};
       Object.values(fieldsByName).forEach(f => {
+        if (f.locked) return;   // env-pinned: server would ignore it anyway
         if (f.type === "weekday_list") {
           const boxes = document.querySelectorAll(`input[data-list-item="${f.name}"]:checked`);
           out[f.name] = Array.from(boxes).map(b => b.value);

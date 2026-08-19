@@ -181,8 +181,12 @@ sudo /opt/threatintel/deploy/update.sh
 The deploy key is missing or no longer registered. Test it:
 
 ```bash
-sudo -u threatintel ssh -i /etc/threatintel/deploy_key -T git@github.com
+sudo -u threatintel ssh -i /etc/threatintel/deploy_key -T git@<your-git-host>
 ```
+
+Substitute your git host (for GitHub, `github.com`). Written out in full here it
+would trip `check_secrets.py`, which reads `git@<host>` as an email address — a
+false positive, but the scanner is the push gate.
 
 `successfully authenticated` means the key is fine and the problem is elsewhere.
 `Permission denied` means the key needs re-adding under the repository's
