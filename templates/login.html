@@ -7,168 +7,206 @@
 <link rel="icon" type="image/svg+xml" href="{{ brand.icon }}">
 <style>
   /* ── Quiet utility ───────────────────────────────────────────────
-     Three people sign in here once a week. A door you walk through
-     every Monday should not have ceremony on it, so: no card, no
-     shadow, no gradient. The form sits on the page directly.
+     Three people sign in here weekly. A door you walk through every
+     Monday should not have ceremony on it: no card, no shadow, no
+     gradient, no hero.
 
-     One typeface at three sizes. The accent appears exactly twice —
-     the focused field's underline and the submit button — so it means
-     "this is where you are" rather than decorating.
+     Quiet is not the same as empty, which is the trap the first cut
+     fell into — a 300px column centred in a 1440px white field has
+     nothing to hold it. So the page gets edges instead of a card: a
+     rule under the masthead, a rule above the footer, and a ground
+     tinted just off white. Structure without ornament.
 
-     Brand marks come from TI_BRAND_* (see .env.example). They are
-     deliberately not in this file: the repository does not carry the
-     employer's visual identity, and check_secrets.py enforces that.
-     Unset, the neutral shield below is used instead.                */
+     Two colours do all the work. Ink carries the action, because on
+     a pale ground a near-black button is both the highest-contrast
+     and the quietest thing you can put there. The brand colour is
+     kept for the mark and the focused field — a real accent, used
+     twice, rather than a wash across the primary control.
+
+     Deliberately light-only: the rest of the app is light, and a
+     login page that flips with the OS while the dashboard behind it
+     does not would read as a bug. Every colour is painted
+     explicitly so it never inherits a host background.           */
   :root {
-    --ink:    #191C20;
-    --muted:  #767D86;
-    --line:   #E6E8EC;
-    --accent: {{ brand.color or '#35506E' }};
-    --bg:     #FFFFFF;
-    --hover:  #F6F7F9;
+    --ground:  #F4F6F8;   /* cool off-white — biased toward the brand hue */
+    --panel:   #FFFFFF;
+    --ink:     #16191D;
+    --body:    #3D444E;
+    --muted:   #616A76;   /* 5.06:1 on the ground — #79818C was 3.64 */
+    --line:    #E3E7EC;
+    --line-2:  #D5DAE1;
+    --action:  #16191D;   /* near-black: 15.8:1 on white */
+    --accent:  {{ brand.color or '#35506E' }};
   }
 
   * { box-sizing: border-box; }
 
-  html, body { height: 100%; }
+  html { height: 100%; }
   body {
-    margin: 0;
-    background: var(--bg);
+    min-height: 100%; margin: 0;
+    background: var(--ground);
     color: var(--ink);
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 16px;
-    line-height: 1.55;
+    font-size: 16px; line-height: 1.55;
     -webkit-font-smoothing: antialiased;
-    display: flex; align-items: center; justify-content: center;
-    padding: 40px 26px;
+    display: grid; grid-template-rows: auto 1fr auto;
   }
 
-  main { width: 100%; max-width: 300px; }
-
-  /* Masthead ---------------------------------------------------- */
-  .mk { display: flex; align-items: center; gap: 8px; margin-bottom: 44px; }
-  .mk img { height: 17px; width: auto; display: block; }
-  .mk svg { width: 15px; height: 15px; flex: none; display: block; }
-  .mk .strap {
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-    color: var(--muted); font-weight: 600;
+  /* Masthead — gives the page a top edge -------------------------- */
+  .top {
+    display: flex; align-items: center; gap: 9px;
+    padding: 18px 26px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .top img { height: 18px; width: auto; display: block; }
+  .top svg { width: 16px; height: 16px; display: block; flex: none; }
+  .top .strap {
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--muted); font-weight: 620;
   }
 
-  h1 { font-size: 20px; font-weight: 620; letter-spacing: -.018em; margin: 0 0 3px; }
-  .subtitle { font-size: 13.5px; color: var(--muted); margin: 0 0 30px; }
+  /* Middle band -------------------------------------------------- */
+  .mid { display: flex; align-items: center; justify-content: center; padding: 48px 26px; }
+  main { width: 100%; max-width: 328px; }
 
-  /* Messages ---------------------------------------------------- */
+  h1 { font-size: 21px; font-weight: 640; letter-spacing: -.02em; margin: 0 0 4px; }
+  .subtitle { font-size: 14px; color: var(--muted); margin: 0 0 28px; }
+
+  /* Messages ------------------------------------------------------ */
   .alert {
     display: none; font-size: 13px; line-height: 1.45;
-    padding: 9px 11px; border-radius: 6px; margin-bottom: 16px;
+    padding: 10px 12px; border-radius: 7px; margin-bottom: 18px;
   }
   .alert.show { display: block; }
-  .alert.err  { background: #FDF1F0; color: #8C2F22; border: 1px solid #F3D6D2; }
-  .alert.info { background: #F1F4F8; color: #35506E; border: 1px solid #DBE2EB; }
+  .alert.err  { background: #FCF0EE; color: #8A2E20; border: 1px solid #F0D3CE; }
+  .alert.info { background: #EFF3F8; color: #2C4260; border: 1px solid #D8E1EC; }
 
-  /* Google ------------------------------------------------------ */
+  /* Google — outlined, so it never competes with the primary ------ */
   .btn-google {
-    width: 100%; height: 42px; cursor: pointer;
-    background: transparent; color: var(--ink);
-    border: 1px solid var(--line); border-radius: 6px;
-    display: flex; align-items: center; justify-content: center; gap: 9px;
-    font: inherit; font-size: 14px; font-weight: 520;
-    transition: background .15s, border-color .15s;
+    width: 100%; height: 44px; cursor: pointer;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font: inherit; font-size: 14.5px; font-weight: 540;
+    transition: border-color .15s, box-shadow .15s;
   }
-  .btn-google:hover { background: var(--hover); border-color: #D6DAE0; }
+  .btn-google:hover { border-color: #B6BDC7; box-shadow: 0 1px 3px rgba(22,25,29,.07); }
   .btn-google:disabled { opacity: .55; cursor: default; }
 
-  .divider { text-align: center; font-size: 11.5px; color: var(--muted); margin: 18px 0; }
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin: 20px 0;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .divider::before, .divider::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
 
   /* Fields: underline, not box — less ink for the same function --- */
-  .field { margin-bottom: 18px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field { margin-bottom: 20px; }
+  label { display: block; font-size: 12.5px; color: var(--body); margin-bottom: 6px; font-weight: 520; }
   input {
-    width: 100%; height: 40px; padding: 0; font: inherit; font-size: 15px;
+    width: 100%; height: 38px; padding: 0 2px; font: inherit; font-size: 15px;
     color: var(--ink); background: transparent;
-    border: none; border-bottom: 1px solid var(--line); border-radius: 0;
+    border: none; border-bottom: 1.5px solid var(--line-2); border-radius: 0;
     transition: border-color .15s;
   }
-  input::placeholder { color: #B4BAC2; }
+  input::placeholder { color: #A9B1BB; }
   input:focus { outline: none; border-bottom-color: var(--accent); }
   input:-webkit-autofill { -webkit-text-fill-color: var(--ink); transition: background-color 9999s; }
 
-  /* Submit ------------------------------------------------------ */
+  /* Submit — ink, not the brand colour. A pale brand tint here
+     fails contrast for white text; ink is 15.8:1 and quieter. ----- */
   .btn-primary-cta {
-    width: 100%; height: 42px; margin-top: 8px; cursor: pointer;
-    background: var(--accent); color: #fff; border: none; border-radius: 6px;
-    font: inherit; font-size: 14px; font-weight: 600;
+    width: 100%; height: 44px; margin-top: 6px; cursor: pointer;
+    background: var(--action); color: #fff; border: none; border-radius: 8px;
+    font: inherit; font-size: 14.5px; font-weight: 600; letter-spacing: .005em;
     display: flex; align-items: center; justify-content: center; gap: 8px;
-    transition: filter .15s;
+    transition: background .15s;
   }
-  .btn-primary-cta:hover { filter: brightness(1.12); }
-  .btn-primary-cta:disabled { opacity: .6; cursor: default; }
+  .btn-primary-cta:hover { background: #2A2F37; }
+  .btn-primary-cta:disabled { opacity: .55; cursor: default; }
 
   .spinner { display: none; width: 13px; height: 13px; flex: none;
-    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
     border-radius: 50%; animation: spin .6s linear infinite; }
   .loading .spinner { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* The footnote gets its own air — on the old page it touched the
-     button and read as a caption for it. */
-  .footnote { margin-top: 26px; font-size: 11px; color: var(--muted); }
+  /* Footer — gives the page a bottom edge ------------------------- */
+  .foot {
+    padding: 15px 26px; border-top: 1px solid var(--line);
+    background: var(--panel);
+    font-size: 11.5px; color: var(--muted);
+    display: flex; gap: 7px; align-items: center; flex-wrap: wrap;
+  }
+  .foot .sep { color: var(--line-2); }
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
   }
+  @media (max-width: 420px) {
+    .top, .foot { padding-left: 20px; padding-right: 20px; }
+    .mid { padding: 32px 20px; }
+  }
 </style>
 </head>
 <body>
-  <main role="main">
-    <div class="mk">
-      {% if brand.logo %}
-      <img src="{{ brand.logo }}" alt="{{ brand.name }}">
-      {% else %}
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 2 4 5.5v6c0 5 3.4 9.2 8 10.5 4.6-1.3 8-5.5 8-10.5v-6L12 2Z"
-              stroke="{{ brand.color or '#35506E' }}" stroke-width="1.9" stroke-linejoin="round"/>
-      </svg>
-      {% endif %}
-      <span class="strap">IT Internal Audit</span>
-    </div>
 
-    <h1>Weekly Cyber Watch</h1>
-    <p class="subtitle">Sign in to continue.</p>
+  <header class="top">
+    {% if brand.logo %}
+    <img src="{{ brand.logo }}" alt="{{ brand.name }}">
+    {% else %}
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 2 4 5.5v6c0 5 3.4 9.2 8 10.5 4.6-1.3 8-5.5 8-10.5v-6L12 2Z"
+            stroke="{{ brand.color or '#35506E' }}" stroke-width="1.9" stroke-linejoin="round"/>
+    </svg>
+    {% endif %}
+    <span class="strap">IT Internal Audit</span>
+  </header>
 
-    <div class="alert err"  id="err"></div>
-    <div class="alert info" id="info"></div>
+  <div class="mid">
+    <main role="main">
+      <h1>Weekly Cyber Watch</h1>
+      <p class="subtitle">Sign in to continue.</p>
 
-    <button id="google-btn" class="btn-google" type="button">
-      <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-      </svg>
-      <span>Continue with Google</span>
-    </button>
+      <div class="alert err"  id="err"></div>
+      <div class="alert info" id="info"></div>
 
-    <div class="divider">or</div>
-
-    <form id="email-form" autocomplete="on" novalidate>
-      <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="username" required placeholder="you@example.com">
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••">
-      </div>
-      <button type="submit" id="email-btn" class="btn-primary-cta">
-        <span class="spinner"></span>
-        <span class="btn-label">Sign in</span>
+      <button id="google-btn" class="btn-google" type="button">
+        <svg width="17" height="17" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.26c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        <span>Continue with Google</span>
       </button>
-    </form>
 
-    <div class="footnote">Internal use only</div>
-  </main>
+      <div class="divider">or</div>
+
+      <form id="email-form" autocomplete="on" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="username" required placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+        <button type="submit" id="email-btn" class="btn-primary-cta">
+          <span class="spinner"></span>
+          <span class="btn-label">Sign in</span>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <span>Internal use only</span>
+    <span class="sep">·</span>
+    <span>Access is granted per account by an administrator</span>
+  </footer>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
