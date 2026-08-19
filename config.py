@@ -18,7 +18,10 @@ import json
 from datetime import time as datetime_time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_ADMIN_SETTINGS_PATH = os.path.join(_HERE, "admin_settings.json")
+# _ADMIN_SETTINGS_PATH is defined further down, once STATE_DIR is known: the
+# panel writes this file at runtime, and a hardened systemd unit mounts the
+# code directory read-only. Functions below reference it by name, which Python
+# resolves at call time, so the later definition is fine.
 
 
 # ── .env loading ────────────────────────────────────────────────────────
@@ -63,6 +66,57 @@ def _env_list(name, default=None):
     items = [part.strip() for part in raw.split(",") if part.strip()]
     return items if items else list(default or [])
 
+# ── Secret settings at rest ─────────────────────────────────────────────────
+# Fields the /admin panel can write but that must not sit in plaintext on disk.
+# Stored as "enc:v1:<fernet token>"; anything without that prefix is read back
+# as-is, so a hand-edited file and older installs keep working.
+SECRET_SETTINGS = {"SENDER_PASSWORD"}
+
+_ENC_PREFIX = "enc:v1:"
+
+
+def _settings_cipher():
+    """Fernet keyed off the same secret that signs approval links.
+
+    Deriving from SECRET_KEY_FILE rather than a new variable means there is one
+    less thing to configure, and it is already required to be identical across
+    processes. Rotating that secret makes stored secret settings unreadable —
+    which is handled below by returning "" rather than raising, so the panel
+    shows an empty box to re-enter instead of the app failing to start.
+    """
+    import base64
+    import hashlib
+    from cryptography.fernet import Fernet
+
+    with open(SECRET_KEY_FILE, "rb") as f:
+        raw = f.read().strip()
+    key = base64.urlsafe_b64encode(hashlib.sha256(raw + b"admin-settings").digest())
+    return Fernet(key)
+
+
+def encrypt_setting(value):
+    """Encrypt a secret setting for storage. Returns "" unchanged."""
+    if not value:
+        return ""
+    if isinstance(value, str) and value.startswith(_ENC_PREFIX):
+        return value  # already encrypted; do not double-wrap
+    return _ENC_PREFIX + _settings_cipher().encrypt(str(value).encode()).decode()
+
+
+def decrypt_setting(value):
+    """Decrypt a stored secret setting. Plaintext passes through untouched."""
+    if not isinstance(value, str) or not value.startswith(_ENC_PREFIX):
+        return value
+    try:
+        return _settings_cipher().decrypt(value[len(_ENC_PREFIX):].encode()).decode()
+    except Exception:
+        # Wrong/rotated key, or a corrupt file. An empty value surfaces in the
+        # panel as "not set" and in validate_deployment() as "no SENDER_PASSWORD
+        # configured", which is the honest answer — better than a stack trace on
+        # every request.
+        return ""
+
+
 # Mtime-cached loader: stat() on every call, full re-read only when the file changes.
 _cache = {"mtime": None, "settings": {}}
 
@@ -77,7 +131,11 @@ def _load_admin_settings():
     if mtime != _cache["mtime"]:
         try:
             with open(_ADMIN_SETTINGS_PATH, "r") as f:
-                _cache["settings"] = json.load(f)
+                loaded = json.load(f)
+            for _name in SECRET_SETTINGS:
+                if _name in loaded:
+                    loaded[_name] = decrypt_setting(loaded[_name])
+            _cache["settings"] = loaded
             _cache["mtime"] = mtime
         except (json.JSONDecodeError, OSError):
             # Keep last good cache rather than blow up live config reads
@@ -212,6 +270,28 @@ STATE_DIR = os.environ.get("TI_STATE_DIR") or _HERE
 SECRET_KEY_FILE = os.environ.get("TI_SECRET_KEY_FILE") or os.path.join(
     STATE_DIR, ".flask_secret_key"
 )
+
+# Admin-panel settings. Written by the /admin panel at runtime, so it lives in
+# STATE_DIR with the database and the signing secret rather than in the code
+# directory — which ProtectSystem=strict mounts read-only, turning every save
+# into a 500.
+_ADMIN_SETTINGS_PATH = os.path.join(STATE_DIR, "admin_settings.json")
+
+# One-time migration for deployments that pre-date the move. Copy rather than
+# rename: the code directory may be read-only, and leaving the original in place
+# is harmless once the new path exists.
+_LEGACY_ADMIN_SETTINGS_PATH = os.path.join(_HERE, "admin_settings.json")
+if _ADMIN_SETTINGS_PATH != _LEGACY_ADMIN_SETTINGS_PATH and not os.path.exists(
+    _ADMIN_SETTINGS_PATH
+):
+    try:
+        if os.path.exists(_LEGACY_ADMIN_SETTINGS_PATH):
+            import shutil as _shutil
+            _shutil.copyfile(_LEGACY_ADMIN_SETTINGS_PATH, _ADMIN_SETTINGS_PATH)
+            os.chmod(_ADMIN_SETTINGS_PATH, 0o600)
+    except OSError:
+        # Not fatal: the panel will write a fresh file on first save.
+        pass
 
 SOC_DELIVERY_DELAY_HOURS = 0  # Hours to wait before sending first approved news to SOC (0 = immediate)
 

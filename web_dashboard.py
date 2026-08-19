@@ -2719,7 +2719,10 @@ def get_scheduled_deliveries():
 # Admin panel — edit hardcoded values stored in admin_settings.json
 # ---------------------------------------------------------------------------
 
-ADMIN_SETTINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "admin_settings.json")
+# Single source of truth: config resolves this to STATE_DIR, which is writable
+# at runtime. Defining a second code-directory path here is what made every
+# panel save return 500 under ProtectSystem=strict.
+ADMIN_SETTINGS_PATH = config._ADMIN_SETTINGS_PATH
 
 ADMIN_FIELDS = {
     "SENDER_EMAIL": {"type": "email", "label": "Sender email (Gmail account that sends mail)"},
@@ -2752,9 +2755,21 @@ def _read_admin_settings():
 
 
 def _write_admin_settings(settings):
-    with open(ADMIN_SETTINGS_PATH, "w") as f:
-        json.dump(settings, f, indent=2, sort_keys=False)
+    # Secret fields are encrypted at rest; config.decrypt_setting reverses this
+    # on load, so nothing else in the app has to know.
+    on_disk = dict(settings)
+    for name in config.SECRET_SETTINGS:
+        if name in on_disk:
+            on_disk[name] = config.encrypt_setting(on_disk[name])
+    # Write via a temp file in the same directory, then rename: a crash or a
+    # full disk mid-write would otherwise leave truncated JSON, and the loader
+    # would fall back to stale cached settings with no obvious cause.
+    tmp = ADMIN_SETTINGS_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(on_disk, f, indent=2, sort_keys=False)
         f.write("\n")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, ADMIN_SETTINGS_PATH)
 
 
 def _coerce(field_name, value):
