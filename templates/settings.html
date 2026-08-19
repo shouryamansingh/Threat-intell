@@ -630,7 +630,7 @@
       <form id="pwLocalForm" style="display:none;">
         <div class="panel-body">
           <div class="grid2">
-            <div class="field full">
+            <div class="field full" id="pwCurrentField">
               <label for="pwCurrent">Current password<span class="req">*</span></label>
               <div class="pwd-wrap">
                 <input class="inp" type="password" id="pwCurrent" autocomplete="current-password" maxlength="128">
@@ -658,10 +658,10 @@
           </div>
         </div>
         <div class="panel-foot">
-          <span class="hint" style="margin:0;">Changing your password is recorded in the access audit trail.</span>
+          <span class="hint" style="margin:0;" id="pwFootHint">Changing your password is recorded in the access audit trail.</span>
           <span class="spacer"></span>
           <button type="submit" class="btn primary" id="pwSaveBtn">
-            <span class="spin"></span><i class="fas fa-key"></i> Change password
+            <span class="spin"></span><i class="fas fa-key"></i> <span id="pwSaveLabel">Change password</span>
           </button>
         </div>
       </form>
@@ -907,12 +907,24 @@
           : 'No <span class="sub">An admin sets this in Users &amp; Access</span>'],
       ].map(([k, v]) => `<div class="fact"><span class="fact-k">${k}</span><div class="fact-v">${v}</div></div>`).join('');
 
-      // Password section — one of three states
-      $('pwLocalForm').style.display = a.password_mode === 'local' ? '' : 'none';
+      // Password section. 'set' and 'local' share the same form — the only
+      // difference is whether a current password exists to prove.
+      const firstTime = a.password_mode === 'set';
+      const usesForm  = firstTime || a.password_mode === 'local';
+      $('pwLocalForm').style.display = usesForm ? '' : 'none';
       $('pwFirebase').style.display  = a.password_mode === 'firebase' ? '' : 'none';
       $('pwNone').style.display      = a.password_mode === 'none' ? '' : 'none';
-      if (a.password_mode === 'local') {
-        $('pwSub').textContent = 'This account signs in with a password stored on this platform.';
+      $('pwCurrentField').style.display = firstTime ? 'none' : '';
+      $('pwCurrent').required = !firstTime;
+      if (firstTime) {
+        $('pwSub').textContent =
+          'You sign in with Google. Set a password here and you can use either from then on.';
+        $('pwSaveLabel').textContent = 'Set password';
+        $('pwFootHint').textContent  = 'Setting your password is recorded in the access audit trail.';
+      } else if (a.password_mode === 'local') {
+        $('pwSaveLabel').textContent = 'Change password';
+        $('pwFootHint').textContent  = 'Changing your password is recorded in the access audit trail.';
+        $('pwSub').textContent = 'You can sign in with Google or with this password.';
       } else if (a.password_mode === 'firebase') {
         $('pwSub').textContent = 'This account signs in through Firebase.';
         $('pwFirebaseHint').textContent = `The link goes to ${a.email}.`;
@@ -1013,9 +1025,10 @@
 
     $('pwLocalForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      const current = $('pwCurrent').value;
+      const firstTime = ME && ME.password_mode === 'set';
+      const current = firstTime ? '' : $('pwCurrent').value;
       const p1 = $('pwNew').value, p2 = $('pwConfirm').value;
-      if (!current)      { notice('error', 'Enter your current password.'); return; }
+      if (!firstTime && !current) { notice('error', 'Enter your current password.'); return; }
       if (p1.length < 8) { notice('error', 'New password must be at least 8 characters.'); return; }
       if (p1 !== p2)     { notice('error', "The two new passwords don't match."); return; }
       busy($('pwSaveBtn'), true);
@@ -1026,7 +1039,12 @@
         });
         $('pwLocalForm').reset();
         refreshPwUI();
-        notice('success', 'Your password was changed. It applies the next time you sign in.');
+        notice('success', firstTime
+          ? 'Password set. You can now sign in with your email and password, or keep using Google.'
+          : 'Your password was changed. It applies the next time you sign in.');
+        // The account has moved from 'set' to 'local'; re-read so the form now
+        // asks for the current password on any further change.
+        load();
       } catch (e) {
         notice('error', e.message || 'Could not change the password.');
       } finally {

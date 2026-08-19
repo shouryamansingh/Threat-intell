@@ -824,19 +824,24 @@ def account_settings_page():
 
 
 def _password_mode(user, profile):
-    """How this identity changes its password.
+    """How this identity sets or changes its password.
 
-    'local'    we hold the werkzeug hash — change it here, current password required
-    'firebase' Firebase owns the credential — email a reset link from the browser
+    'local'    a password already exists — change it, current password required
+    'set'      no password yet, so there is none to prove; the signed-in session
+               is the proof. Offered to approved Google users so the account
+               gains a second way in.
     'none'     nothing to change (the demo identity)
+
+    The test is whether a hash exists, not how the account was created: someone
+    who signed up through Google and then set a password is 'local' from here
+    on, and can sign in either way.
     """
     provider = (user.get('provider') or '').strip().lower()
-    auth_provider = (profile.get('auth_provider') or '').strip().lower()
     if provider == 'demo':
         return 'none'
-    if provider == 'local' or auth_provider == 'local':
+    if db.has_local_password(user.get('uid')):
         return 'local'
-    return 'firebase'
+    return 'set'
 
 
 # How the person got in, as the settings page labels it.
@@ -973,12 +978,17 @@ def api_profile_password():
         return jsonify({'status': 'error', 'error': 'not_signed_in'}), 401
 
     profile = db.get_user_profile(user.get('uid')) or {}
-    if _password_mode(user, profile) != 'local':
+    mode = _password_mode(user, profile)
+    if mode == 'none':
         return jsonify({
             'status': 'error',
-            'message': 'This account signs in through Firebase — use the reset '
-                       'link instead of changing a password here.',
+            'message': 'This identity cannot hold a password.',
         }), 409
+    # 'set' is a first-time set: there is no current password to prove, so the
+    # signed-in session is the authorisation. Deliberately only when no hash
+    # exists — allowing it once one does would turn a stolen session into a
+    # full account takeover needing no password at all.
+    first_time = (mode == 'set')
 
     data = request.get_json(silent=True) or {}
     current = data.get('current_password') or ''
@@ -987,7 +997,7 @@ def api_profile_password():
     if len(new_password) < 8:
         return jsonify({'status': 'error',
                         'message': 'New password must be at least 8 characters.'}), 400
-    if new_password == current:
+    if current and new_password == current:
         return jsonify({'status': 'error',
                         'message': 'The new password must differ from the current one.'}), 400
 
@@ -999,11 +1009,12 @@ def api_profile_password():
     if locked:
         return locked
 
-    if not db.verify_local_user(user.get('email') or '', current):
-        _throttle_fail(user.get('email'), scope="pwchange")
-        logger.warning(f"🔑 Password change refused (bad current password): {user.get('email')}")
-        return jsonify({'status': 'error',
-                        'message': 'Your current password is incorrect.'}), 403
+    if not first_time:
+        if not db.verify_local_user(user.get('email') or '', current):
+            _throttle_fail(user.get('email'), scope="pwchange")
+            logger.warning(f"🔑 Password change refused (bad current password): {user.get('email')}")
+            return jsonify({'status': 'error',
+                            'message': 'Your current password is incorrect.'}), 403
     _throttle_reset(user.get('email'), scope="pwchange")
 
     try:
@@ -1014,9 +1025,10 @@ def api_profile_password():
         logger.error(f"Self password change failed for {user.get('email')}: {e}")
         return jsonify({'status': 'error', 'message': 'Could not change the password.'}), 500
 
-    logger.info(f"🔑 Password changed by {user.get('email')} (self-service)")
+    what = 'Password set' if first_time else 'Password changed'
+    logger.info(f"🔑 {what} by {user.get('email')} (self-service)")
     db.log_system_event('WARNING',
-                        f"Password changed by {user.get('email')} (self-service)",
+                        f"{what} by {user.get('email')} (self-service)",
                         'ACCESS_CONTROL')
     return jsonify({'status': 'success'})
 

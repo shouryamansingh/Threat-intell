@@ -115,77 +115,7 @@
   }
   .btn-primary-cta:active { transform: translateY(1px); }
   .btn-primary-cta:disabled { opacity: .65; cursor: not-allowed; }
-  .footer-link {
-    text-align: center; margin-top: 18px;
-    font-size: 12.5px; color: var(--slate-500);
-  }
-  .footer-link a {
-    color: var(--brand-dark); text-decoration: none; font-weight: 600;
-  }
-  .footer-link a:hover { text-decoration: underline; }
-  .footer-link .sep { margin: 0 7px; color: var(--slate-300); }
 
-  /* ─── Request-access panel (collapsed by default) ───────────── */
-  .request-box {
-    margin-top: 16px; padding: 16px;
-    border: 1px solid var(--slate-200); border-radius: 11px;
-    background: var(--slate-50);
-  }
-  .request-head {
-    font-size: 13px; font-weight: 700; color: var(--brand-dark);
-    margin-bottom: 12px;
-  }
-  .request-box .field { margin-bottom: 10px; }
-  .request-box .optional { font-weight: 500; color: var(--slate-500); }
-  .request-box textarea {
-    width: 100%; padding: 9px 12px;
-    border: 1px solid var(--slate-200); border-radius: 9px;
-    font-size: 14px; font-family: inherit; resize: vertical;
-    color: var(--slate-900); background: #ffffff;
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .request-box textarea:focus {
-    outline: none; border-color: var(--brand-blue);
-    box-shadow: 0 0 0 3px rgba(47,107,255,0.18);
-  }
-  .btn-request {
-    width: 100%; height: 40px; margin-top: 4px;
-    border-radius: 9px; border: 1px solid var(--brand-blue);
-    background: #ffffff; color: var(--brand-blue);
-    font-size: 13.5px; font-weight: 600; font-family: inherit; cursor: pointer;
-    transition: background .15s, color .15s;
-  }
-  .btn-request:hover { background: var(--brand-blue); color: #ffffff; }
-  .btn-request:disabled { opacity: .6; cursor: not-allowed; }
-  .request-note {
-    margin-top: 9px; font-size: 11.5px; color: var(--slate-500); line-height: 1.45;
-  }
-  .alert {
-    padding: 10px 12px; border-radius: 8px;
-    font-size: 13px; line-height: 1.45;
-    margin-bottom: 14px;
-    display: none;
-  }
-  .alert.err  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-  .alert.info { background: var(--brand-tint); color: var(--brand-dark); border: 1px solid rgba(47,107,255,0.4); }
-  .alert.show { display: block; }
-  .spinner {
-    width: 14px; height: 14px;
-    border: 2px solid rgba(255,255,255,.35);
-    border-top-color: #fff; border-radius: 50%;
-    animation: spin .7s linear infinite;
-    display: none;
-  }
-  .btn-primary-cta.loading .spinner { display: inline-block; }
-  .btn-primary-cta.loading .btn-label { opacity: .85; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .footnote {
-    text-align: center;
-    margin-top: 20px;
-    font-size: 11px;
-    color: var(--slate-500);
-    letter-spacing: 0.03em;
-  }
 </style>
 </head>
 <body>
@@ -227,31 +157,6 @@
       </button>
     </form>
 
-    <div class="footer-link">
-      No account? <a href="#" id="signup-link">Create one</a>
-      <span class="sep">·</span>
-      <a href="#" id="request-access-link">Request access</a>
-    </div>
-
-    <!-- Access-request form: hidden until asked for. Files a pending request
-         for an admin to approve; it grants nothing on its own. -->
-    <div class="request-box" id="request-box" style="display:none;">
-      <div class="request-head">Ask an administrator for access</div>
-      <div class="field">
-        <label for="req-name">Your name</label>
-        <input type="text" id="req-name" autocomplete="name" placeholder="Priya Sharma">
-      </div>
-      <div class="field">
-        <label for="req-email">Work email</label>
-        <input type="email" id="req-email" autocomplete="username" placeholder="you@example.com">
-      </div>
-      <div class="field">
-        <label for="req-reason">Why do you need access? <span class="optional">(optional)</span></label>
-        <textarea id="req-reason" rows="2" placeholder="e.g. SOC analyst — need the weekly report"></textarea>
-      </div>
-      <button type="button" id="req-submit" class="btn-request">Send request</button>
-      <div class="request-note">An admin reviews every request. You'll be able to sign in once approved.</div>
-    </div>
 
     <div class="footnote">Internal use only · Authenticated via Firebase</div>
   </main>
@@ -399,7 +304,7 @@
         const map = {
           'auth/invalid-email': 'That email looks invalid.',
           'auth/user-disabled': 'This account is disabled.',
-          'auth/user-not-found': 'No account with that email. Create one, or request access below.',
+          'auth/user-not-found': 'No password set for that email. Sign in with Google first — you can set a password from My Account once an administrator approves you.',
           'auth/wrong-password': 'Wrong password.',
           'auth/invalid-credential': 'Email or password is incorrect.',
           'auth/too-many-requests': 'Too many attempts. Try again in a few minutes.',
@@ -410,79 +315,6 @@
       }
     });
 
-    // ── Request access ──────────────────────────────────────────
-    // For someone with no account and no allow-listed domain: file a request an
-    // admin can approve on the Users & Access page. Grants nothing by itself.
-    document.getElementById('request-access-link').addEventListener('click', (ev) => {
-      ev.preventDefault();
-      clearMsg();
-      const box = document.getElementById('request-box');
-      const open = box.style.display !== 'none';
-      box.style.display = open ? 'none' : '';
-      if (!open) {
-        // Carry over whatever they already typed into the sign-in box.
-        const typed = document.getElementById('email').value.trim();
-        if (typed) document.getElementById('req-email').value = typed;
-        document.getElementById(typed ? 'req-name' : 'req-email').focus();
-      }
-    });
-
-    document.getElementById('req-submit').addEventListener('click', async () => {
-      clearMsg();
-      const btn = document.getElementById('req-submit');
-      const payload = {
-        name:   document.getElementById('req-name').value.trim(),
-        email:  document.getElementById('req-email').value.trim(),
-        reason: document.getElementById('req-reason').value.trim(),
-      };
-      if (!payload.email || !payload.email.includes('@')) {
-        showErr('Enter your work email address so an admin knows who to approve.');
-        return;
-      }
-      btn.disabled = true;
-      try {
-        const resp = await fetch('/api/auth/request-access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const j = await resp.json().catch(() => ({}));
-        if (!resp.ok) { showErr(j.message || 'Could not submit your request.'); return; }
-        showInfo(j.message || 'Request sent.');
-        document.getElementById('request-box').style.display = 'none';
-        document.getElementById('req-reason').value = '';
-      } catch (e) {
-        showErr('Could not reach the server. Try again in a moment.');
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    document.getElementById('signup-link').addEventListener('click', async (ev) => {
-      ev.preventDefault();
-      clearMsg();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      if (!email || password.length < 6) {
-        showErr('Enter an email and a password (at least 6 characters), then click Create one.');
-        return;
-      }
-      emailBtn.classList.add('loading'); emailBtn.disabled = true;
-      try {
-        const result = await auth.createUserWithEmailAndPassword(email, password);
-        showInfo('Account created. Signing you in…');
-        await exchangeForSession(result.user);
-      } catch (e) {
-        const map = {
-          'auth/email-already-in-use': 'That email is already registered — just sign in.',
-          'auth/invalid-email': 'That email looks invalid.',
-          'auth/weak-password': 'Password too weak. Use at least 6 characters.',
-        };
-        showErr(map[e.code] || e.message || 'Sign-up failed');
-      } finally {
-        emailBtn.classList.remove('loading'); emailBtn.disabled = false;
-      }
-    });
   </script>
 </body>
 </html>

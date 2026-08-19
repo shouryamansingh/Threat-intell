@@ -208,7 +208,9 @@ class ThreatIntelDB:
         # sign-in, OR created directly by an admin for a local account.
         #   auth_provider  'firebase' (identity owned by Firebase) or 'local'
         #                  (email+password checked against password_hash here).
-        #   password_hash  set only for local accounts (werkzeug hash).
+        #   password_hash  werkzeug hash, set on any account that has chosen
+        #                  a password — including Google ones, which may then
+        #                  sign in either way.
         #   active         0 disables sign-in without deleting the row.
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_profiles (
@@ -1386,7 +1388,9 @@ class ThreatIntelDB:
         if not row:
             return None
         row = dict(row)
-        if row.get("auth_provider") != "local" or not row.get("password_hash"):
+        # A password login needs a password — not a particular auth_provider.
+        # A Google account that has set one can use either route in.
+        if not row.get("password_hash"):
             return None
         if not int(row.get("active", 1)):
             return None
@@ -1424,8 +1428,33 @@ class ThreatIntelDB:
         finally:
             conn.close()
 
+    def has_local_password(self, uid: str) -> bool:
+        """True if this account can sign in with a password.
+
+        The presence of a hash is the whole test: an account created through
+        Google that later set a password answers True, and can then use either
+        sign-in route.
+        """
+        if not uid:
+            return False
+        conn = sqlite3.connect(self.db_path)
+        try:
+            row = conn.execute(
+                "SELECT password_hash FROM user_profiles WHERE uid = ?", (uid,)
+            ).fetchone()
+        finally:
+            conn.close()
+        return bool(row and row[0])
+
     def set_local_password(self, uid: str, password: str):
-        """Reset the password on a local account. Raises for non-local rows."""
+        """Set or replace the password on an existing account.
+
+        Deliberately does not require auth_provider == 'local'. Someone who
+        signed in with Google may also set a password, so the account then has
+        two ways in. auth_provider is left alone: it records how the account was
+        created, which stays true — what decides whether a password login is
+        possible is whether password_hash is set (see verify_local_user).
+        """
         from werkzeug.security import generate_password_hash
         if not uid or not password:
             raise ValueError("uid and password are required")
@@ -1436,8 +1465,6 @@ class ThreatIntelDB:
             ).fetchone()
             if not row:
                 raise ValueError("No such user")
-            if row[0] != "local":
-                raise ValueError("Password can only be set on local accounts")
             conn.execute(
                 "UPDATE user_profiles SET password_hash = ?, updated_at = CURRENT_TIMESTAMP "
                 "WHERE uid = ?",
