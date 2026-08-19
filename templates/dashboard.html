@@ -3354,51 +3354,8 @@
     </script>
 
     <!-- Left collapsing sidebar (hover to expand) -->
-    <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
-        <a class="sb-logo" href="/" title="Weekly Cyber Watch">
-            <img src="{{ brand.icon }}" alt="{{ brand.name }}">
-            <span class="sb-logo-text">Cyber Watch</span>
-        </a>
-        <nav class="sb-links">
-            <a class="sb-link active" href="/" title="Dashboard">
-                <span class="sb-ico"><i class="fas fa-house"></i></span>
-                <span class="sb-label">Dashboard</span>
-            </a>
-            <a class="sb-link" href="/admin" title="Admin Settings">
-                <span class="sb-ico"><i class="fas fa-user-shield"></i></span>
-                <span class="sb-label">Admin</span>
-            </a>
-            <!-- Admin-only; revealed by loadCurrentUser() once /api/auth/me confirms the role -->
-            <a class="sb-link" href="/admin/users" id="sb-users-link" title="Users &amp; Access" style="display:none;">
-                <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
-                <span class="sb-label">Users &amp; Access</span>
-                <span class="sb-badge" id="sb-pending-badge"></span>
-            </a>
-            <button type="button" class="sb-link" id="sb-refresh" title="Refresh project (wipe articles &amp; workflow state)">
-                <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
-                <span class="sb-label">Refresh Project</span>
-            </button>
-            <!-- Your own details, role and password — see templates/settings.html -->
-            <a class="sb-link" href="/settings" title="My account &amp; password">
-                <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
-                <span class="sb-label">My Account</span>
-            </a>
-        </nav>
-        <div class="sb-foot">
-            <a class="sb-user" id="sb-user" href="/settings" title="My account" style="display:none;">
-                <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
-                <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
-                <div class="sb-user-meta">
-                    <div class="name" id="sb-user-name">Signed in</div>
-                    <div class="email" id="sb-user-email">—</div>
-                </div>
-            </a>
-            <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
-                <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
-                <span class="sb-label">Sign out</span>
-            </button>
-        </div>
-    </aside>
+    {% set nav_active = 'dashboard' %}
+    {% include '_sidebar.html' %}
 
     <!-- Toast stack + custom confirm modal (rendered once, reused by JS) -->
     <div id="toast-stack" aria-live="polite" aria-atomic="false"></div>

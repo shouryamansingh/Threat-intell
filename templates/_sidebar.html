@@ -1,0 +1,80 @@
+{#
+  Shared primary navigation.
+
+  Every page included its own copy of this markup until they drifted apart: the
+  Admin and Users icons differed between pages, the pending badge was missing on
+  one, the Users link was admin-gated on two pages and always visible on the
+  other two, and Refresh Project was absent from Settings entirely — which is
+  what made it look like the item randomly disappeared.
+
+  Usage — set the active item, then include:
+
+      {% set nav_active = 'admin' %}
+      {% include '_sidebar.html' %}
+
+  Valid nav_active values: dashboard | admin | users | settings
+#}
+<aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
+  <a class="sb-logo" href="/" title="{{ brand.name }}">
+    <img src="{{ brand.icon }}" alt="{{ brand.name }}">
+    <span class="sb-logo-text">Cyber Watch</span>
+  </a>
+  <nav class="sb-links">
+    <a class="sb-link{% if nav_active == 'dashboard' %} active{% endif %}" href="/" title="Dashboard">
+      <span class="sb-ico"><i class="fas fa-house"></i></span>
+      <span class="sb-label">Dashboard</span>
+    </a>
+    <a class="sb-link{% if nav_active == 'admin' %} active{% endif %}" href="/admin" title="Admin Settings">
+      <span class="sb-ico"><i class="fas fa-user-shield"></i></span>
+      <span class="sb-label">Admin</span>
+    </a>
+    {# Admin-only. On the dashboard and settings pages it starts hidden and is
+       revealed by that page's loadCurrentUser() once /api/auth/me confirms the
+       role. The admin and users pages are themselves admin-gated — you cannot
+       be looking at them otherwise — and neither has reveal JS, so hiding it
+       there would remove the link permanently. #}
+    <a class="sb-link{% if nav_active == 'users' %} active{% endif %}" href="/admin/users"
+       id="sb-users-link" title="Users &amp; Access"
+       {% if nav_active not in ('admin', 'users') %}style="display:none;"{% endif %}>
+      <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
+      <span class="sb-label">Users &amp; Access</span>
+      <span class="sb-badge" id="sb-pending-badge"></span>
+    </a>
+    {# On the dashboard this refreshes in place via refreshProject(). Elsewhere
+       there is no such function, so it navigates home with ?refresh=1, which
+       the dashboard picks up on load. Same action, different mechanism. #}
+    {% if nav_active == 'dashboard' %}
+    <button type="button" class="sb-link" id="sb-refresh"
+            title="Refresh project (wipe articles &amp; workflow state)">
+      <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
+      <span class="sb-label">Refresh Project</span>
+    </button>
+    {% else %}
+    <a class="sb-link" href="/?refresh=1"
+       title="Refresh project (wipe articles &amp; workflow state)">
+      <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
+      <span class="sb-label">Refresh Project</span>
+    </a>
+    {% endif %}
+    <a class="sb-link{% if nav_active == 'settings' %} active{% endif %}" href="/settings"
+       title="My account &amp; password">
+      <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
+      <span class="sb-label">My Account</span>
+    </a>
+  </nav>
+  <div class="sb-foot">
+    <a class="sb-user{% if nav_active == 'settings' %} active{% endif %}" id="sb-user"
+       href="/settings" title="My account" style="display:none;">
+      <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
+      <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
+      <div class="sb-user-meta">
+        <div class="name" id="sb-user-name">Signed in</div>
+        <div class="email" id="sb-user-email">—</div>
+      </div>
+    </a>
+    <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
+      <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
+      <span class="sb-label">Sign out</span>
+    </button>
+  </div>
+</aside>

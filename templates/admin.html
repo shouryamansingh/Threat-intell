@@ -745,48 +745,8 @@
 </head>
 <body>
   <!-- Left collapsing sidebar (hover to expand) -->
-  <aside class="app-sidebar" id="app-sidebar" aria-label="Primary navigation">
-    <a class="sb-logo" href="/" title="Weekly Cyber Watch">
-      <img src="{{ brand.icon }}" alt="{{ brand.name }}">
-      <span class="sb-logo-text">Cyber Watch</span>
-    </a>
-    <nav class="sb-links">
-      <a class="sb-link" href="/" title="Dashboard">
-        <span class="sb-ico"><i class="fas fa-house"></i></span>
-        <span class="sb-label">Dashboard</span>
-      </a>
-      <a class="sb-link active" href="/admin" title="Admin Settings">
-        <span class="sb-ico"><i class="fas fa-user-shield"></i></span>
-        <span class="sb-label">Admin</span>
-      </a>
-      <a class="sb-link" href="/admin/users" title="Users &amp; Access">
-        <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
-        <span class="sb-label">Users &amp; Access</span>
-      </a>
-      <a class="sb-link" href="/?refresh=1" title="Refresh project (wipe articles &amp; workflow state)">
-        <span class="sb-ico"><i class="fas fa-rotate-right"></i></span>
-        <span class="sb-label">Refresh Project</span>
-      </a>
-      <a class="sb-link" href="/settings" title="My account &amp; password">
-        <span class="sb-ico"><i class="fas fa-user-gear"></i></span>
-        <span class="sb-label">My Account</span>
-      </a>
-    </nav>
-    <div class="sb-foot">
-      <a class="sb-user" id="sb-user" href="/settings" title="My account" style="display:none;">
-        <img id="sb-avatar" class="sb-avatar" alt="" referrerpolicy="no-referrer" style="display:none;">
-        <span id="sb-avatar-initial" class="sb-avatar-initial">?</span>
-        <div class="sb-user-meta">
-          <div class="name" id="sb-user-name">Signed in</div>
-          <div class="email" id="sb-user-email">—</div>
-        </div>
-      </a>
-      <button type="button" class="sb-link sb-logout" id="sb-logout" title="Sign out">
-        <span class="sb-ico"><i class="fas fa-right-from-bracket"></i></span>
-        <span class="sb-label">Sign out</span>
-      </button>
-    </div>
-  </aside>
+  {% set nav_active = 'admin' %}
+  {% include '_sidebar.html' %}
 
   <header class="app">
     <div class="inner">
