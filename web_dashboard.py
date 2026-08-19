@@ -3219,11 +3219,46 @@ def api_admin_get_settings():
             entry["is_set"] = True
             entry["hint"] = (
                 (spec.get("hint", "") + " ").lstrip()
-                + "A password is already saved — leave blank to keep it, "
-                  "or type a new one to replace it."
+                + "A password is saved. Click show to reveal it, or type a new "
+                  "one to replace it."
             )
         fields.append(entry)
     return jsonify({"status": "success", "fields": fields})
+
+
+@app.route('/api/admin/settings/reveal', methods=['POST'])
+@require_operator
+def api_admin_reveal_setting():
+    """Return the plaintext of one secret setting, on explicit request.
+
+    The settings GET deliberately blanks passwords, so they are not sitting in
+    the DOM of every admin page load. This endpoint exists for the panel's
+    "show" button: one field, one deliberate action, operator-only, and logged.
+
+    Env-pinned fields are refused rather than revealed — their value lives in a
+    root-owned file the app can read but the panel cannot change, and echoing it
+    into a browser would undo that separation for no benefit.
+    """
+    name = (request.get_json(silent=True) or {}).get("field", "")
+    spec = ADMIN_FIELDS.get(name)
+    if not spec or spec.get("type") != "password":
+        return jsonify({"status": "error", "message": "Not a secret field"}), 400
+    if config.is_env_managed(name):
+        return jsonify({
+            "status": "error",
+            "message": "Set by an environment variable; not editable here.",
+        }), 403
+
+    value = _read_admin_settings().get(name, "")
+    value = config.decrypt_setting(value)
+    try:
+        db.log_system_event(
+            'INFO', 'ADMIN',
+            f"Secret setting '{name}' revealed in the admin panel",
+        )
+    except Exception:
+        pass   # never fail the request because the audit write failed
+    return jsonify({"status": "success", "value": value})
 
 
 def _pycache_dirs():

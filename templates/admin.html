@@ -915,13 +915,17 @@
       const label = `<label for="f-${field.name}">${escapeHtml(field.label)}</label>`;
       let input;
       switch (field.type) {
-        case "password":
+        case "password": {
+          const ph = field.is_set ? "\u2022".repeat(16) : "";
           input = `
             <div class="password-wrap">
-              <input id="f-${field.name}" type="password" data-name="${field.name}" value="${escapeHtml(value)}" autocomplete="off">
+              <input id="f-${field.name}" type="password" data-name="${field.name}" value="${escapeHtml(value)}"
+                     placeholder="${ph}" autocomplete="off"
+                     ${field.is_set ? 'data-is-set="1"' : ''}>
               <button type="button" class="toggle" data-target="f-${field.name}">show</button>
             </div>`;
           break;
+        }
         case "email":
           input = `<input id="f-${field.name}" type="email" data-name="${field.name}" value="${escapeHtml(value)}" autocomplete="off">`;
           break;
@@ -1017,11 +1021,36 @@
       root.innerHTML = html;
       document.getElementById("btn-save").disabled = false;
       root.querySelectorAll("button.toggle").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           const el = document.getElementById(btn.dataset.target);
           if (!el) return;
-          if (el.type === "password") { el.type = "text"; btn.textContent = "hide"; }
-          else { el.type = "password"; btn.textContent = "show"; }
+          if (el.type === "password") {
+            // Stored secrets are not part of the settings payload. Fetch on the
+            // first reveal so the value is never sitting in the page unasked.
+            if (!el.value && el.dataset.isSet) {
+              const prev = btn.textContent;
+              btn.textContent = "...";
+              btn.disabled = true;
+              try {
+                const r = await fetch("/api/admin/settings/reveal", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ field: el.dataset.name }),
+                });
+                const j = await r.json();
+                if (j.status === "success") el.value = j.value;
+                else showBanner("error", j.message || "Could not reveal value");
+              } catch (e) {
+                showBanner("error", "Could not reveal value");
+              } finally {
+                btn.disabled = false;
+                btn.textContent = prev;
+              }
+            }
+            el.type = "text"; btn.textContent = "hide";
+          } else {
+            el.type = "password"; btn.textContent = "show";
+          }
         });
       });
     }
