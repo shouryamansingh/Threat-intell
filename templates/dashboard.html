@@ -3008,7 +3008,10 @@
                 // Users & Access is admin-only — reveal it and surface how many
                 // people are waiting for access, so requests aren't missed.
                 if (j.is_admin) {
-                    document.getElementById('sb-users-link').style.display = '';
+                    // Reveals the sidebar link and the mobile bottom-bar tab
+                    // together — both carry .js-admin-only.
+                    document.querySelectorAll('.js-admin-only')
+                        .forEach(function (el) { el.style.display = ''; });
                     loadPendingAccessCount();
                 }
             } catch (e) { /* leave hidden */ }

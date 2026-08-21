@@ -33,7 +33,7 @@
        role. The admin and users pages are themselves admin-gated — you cannot
        be looking at them otherwise — and neither has reveal JS, so hiding it
        there would remove the link permanently. #}
-    <a class="sb-link{% if nav_active == 'users' %} active{% endif %}" href="/admin/users"
+    <a class="sb-link js-admin-only{% if nav_active == 'users' %} active{% endif %}" href="/admin/users"
        id="sb-users-link" title="Users &amp; Access"
        {% if nav_active not in ('admin', 'users') %}style="display:none;"{% endif %}>
       <span class="sb-ico"><i class="fas fa-users-gear"></i></span>
@@ -78,3 +78,102 @@
     </button>
   </div>
 </aside>
+
+{# ── Mobile navigation ──────────────────────────────────────────────────
+   Below 768px every page hides .app-sidebar, which left phones with no way
+   to move between Dashboard, Admin, Users and My Account at all. This is
+   that navigation: a thumb-reachable bottom bar, same destinations, same
+   active state.
+
+   Refresh Project is deliberately absent. It wipes articles and workflow
+   state, and a destructive action does not belong one thumb-tap from the
+   bottom edge of a phone. It stays on the desktop sidebar.
+
+   The styles live here rather than in each page because the sidebar CSS is
+   already duplicated across four templates and drifted; one definition is
+   the point of this partial.                                              #}
+<style>
+  .mobile-nav { display: none; }
+
+  @media (max-width: 768px) {
+    .mobile-nav {
+      display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 1060;
+      background: #ffffff;
+      border-top: 1px solid #e2e8f0;
+      /* Clears the iPhone home indicator so the last row is not cut off. */
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      box-shadow: 0 -1px 3px rgba(15,23,41,.06);
+    }
+    .mobile-nav a, .mobile-nav button {
+      appearance: none; background: none; border: 0; cursor: pointer;
+      font: inherit; text-decoration: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 9px 4px 8px;
+      /* 48px keeps every target above the minimum comfortable tap size. */
+      min-height: 48px;
+      color: #64748b; font-family: inherit;
+    }
+    .mobile-nav i { font-size: 17px; line-height: 1; }
+    .mobile-nav .mb-label {
+      font-size: 9.5px; letter-spacing: .02em; font-weight: 600;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .mobile-nav a.active { color: #2f6bff; }
+    .mobile-nav a.active i { transform: translateY(-1px); }
+    .mobile-nav .mb-logout { color: #b91c1c; }
+    .mobile-nav a:active, .mobile-nav button:active { background: #f1f5f9; }
+
+    /* Content must not sit underneath the bar. */
+    body { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+
+    html.dark .mobile-nav { background: #111a30; border-top-color: #1f2c4d; }
+    html.dark .mobile-nav a, html.dark .mobile-nav button { color: #94a3b8; }
+    html.dark .mobile-nav a.active { color: #7ea2ff; }
+    html.dark .mobile-nav .mb-logout { color: #fca5a5; }
+    html.dark .mobile-nav a:active, html.dark .mobile-nav button:active { background: #1a2540; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-nav a.active i { transform: none; }
+  }
+</style>
+
+<nav class="mobile-nav" aria-label="Primary navigation">
+  <a href="/" class="{% if nav_active == 'dashboard' %}active{% endif %}">
+    <i class="fas fa-house" aria-hidden="true"></i>
+    <span class="mb-label">Dashboard</span>
+  </a>
+  <a href="/admin" class="{% if nav_active == 'admin' %}active{% endif %}">
+    <i class="fas fa-user-shield" aria-hidden="true"></i>
+    <span class="mb-label">Admin</span>
+  </a>
+  {# Same admin gate as the sidebar link: revealed by loadCurrentUser() on the
+     pages that have it, shown outright on pages that are already admin-only. #}
+  <a href="/admin/users" class="js-admin-only {% if nav_active == 'users' %}active{% endif %}"
+     {% if nav_active not in ('admin', 'users') %}style="display:none;"{% endif %}>
+    <i class="fas fa-users-gear" aria-hidden="true"></i>
+    <span class="mb-label">Users</span>
+  </a>
+  <a href="/settings" class="{% if nav_active == 'settings' %}active{% endif %}">
+    <i class="fas fa-user-gear" aria-hidden="true"></i>
+    <span class="mb-label">Account</span>
+  </a>
+  <button type="button" class="mb-logout" id="mb-logout" title="Sign out">
+    <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+    <span class="mb-label">Sign out</span>
+  </button>
+</nav>
+
+<script>
+  /* The bottom bar's Sign out reuses whatever the page already wired to
+     #sb-logout, so there is one sign-out implementation rather than two. */
+  (function () {
+    var mb = document.getElementById('mb-logout');
+    if (!mb) return;
+    mb.addEventListener('click', function () {
+      var desktop = document.getElementById('sb-logout');
+      if (desktop) desktop.click();
+    });
+  })();
+</script>

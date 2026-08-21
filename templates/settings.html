@@ -84,7 +84,7 @@
     }
     .app-sidebar .sb-logo img { height: 26px; width: 26px; min-width: 26px; }
     .app-sidebar .sb-logo .sb-logo-text {
-      font-size: 11.5px; font-weight: 650; letter-spacing: .08em; color: var(--ink);
+      font-size: 12px; font-weight: 650; letter-spacing: .08em; color: var(--ink);
       text-transform: uppercase; white-space: nowrap;
       opacity: 0; transform: translateX(-6px); transition: opacity .22s, transform .22s;
     }
@@ -93,7 +93,7 @@
     .app-sidebar .sb-link {
       display: flex; align-items: center; gap: 12px; padding: 8px 10px;
       border: none; background: transparent; color: var(--ink-3); border-radius: var(--r-ctl);
-      font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer;
+      font-size: 13.5px; font-weight: 500; text-decoration: none; cursor: pointer;
       font-family: inherit; text-align: left; white-space: nowrap; position: relative;
       transition: background .15s, color .15s;
     }
@@ -104,7 +104,7 @@
     }
     .app-sidebar .sb-link .sb-ico {
       width: 28px; min-width: 28px; height: 26px;
-      display: inline-flex; align-items: center; justify-content: center; font-size: 14px;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
     }
     .app-sidebar .sb-link .sb-label {
       opacity: 0; transform: translateX(-6px); transition: opacity .25s, transform .25s;
@@ -144,7 +144,7 @@
     }
     .app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
     .app-sidebar .sb-user-meta .name {
-      font-size: 12px; font-weight: 600; color: var(--ink);
+      font-size: 12.5px; font-weight: 600; color: var(--ink);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .app-sidebar .sb-user-meta .email {
@@ -161,7 +161,8 @@
       position: sticky; top: 0; z-index: 40;
     }
     header.app .inner {
-      max-width: 64rem; margin: 0 auto; padding: 0 30px;
+      /* 72rem across every page — see the note on main below. */
+      max-width: 72rem; margin: 0 auto; padding: 0 30px;
       display: flex; align-items: center; height: 58px; gap: 28px;
     }
     .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
@@ -195,7 +196,9 @@
     html.dark .theme-toggle .tt-muted .sun { display: inline-block; }
 
     /* ─── Page ─────────────────────────────────────────────────── */
-    main { max-width: 64rem; margin: 0 auto; padding: 30px 30px 90px; }
+    /* 72rem here, on Admin and on Users & Access. These had drifted to
+       64/72/74rem, so the content column visibly resized between sections. */
+    main { max-width: 72rem; margin: 0 auto; padding: 30px 30px 90px; }
     .page-head { margin-bottom: 18px; }
     .eyebrow {
       font-size: 11px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase;
@@ -270,7 +273,11 @@
     .panel-foot .spacer { margin-left: auto; }
 
     /* Read-only facts */
-    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+    /* Exactly six facts, so three columns fills two rows evenly. auto-fit sized
+       the count from the width, which at 72rem packs five across and strands
+       the sixth alone beside a run of empty cells. */
+    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 860px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .fact { padding: 14px 20px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
     .fact-k {
       display: block; font-size: 11px; font-weight: 650; letter-spacing: .06em;
@@ -952,7 +959,9 @@
           img.style.display = 'none'; ini.style.display = '';
         }
         $('sb-user').style.display = '';
-        if (ME.role === 'admin') $('sb-users-link').style.display = '';
+        // Both the sidebar link and the mobile bottom-bar tab.
+        if (ME.role === 'admin') document.querySelectorAll('.js-admin-only')
+          .forEach(function (el) { el.style.display = ''; });
       } catch (e) {
         notice('error', e.message || 'Could not load your account.');
       }
