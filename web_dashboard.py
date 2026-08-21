@@ -23,6 +23,7 @@ logger = setup_logging("dashboard")
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_socketio import SocketIO, emit
 from werkzeug.middleware.proxy_fix import ProxyFix
+import re
 import sqlite3
 import threading
 import time
@@ -140,6 +141,12 @@ _AUTH_PUBLIC_PREFIXES = (
     '/api/notify_validation',
     '/api/notify_delivery',
     '/healthz',   # liveness probe for uptime monitors — returns no sensitive data
+    # Branding and the Firebase *browser* config, for the React front end
+    # (frontend_bridge.py). Public for the same reason the login page is: a
+    # sign-in screen needs the Firebase config before anyone has a session.
+    # This exposes nothing new — every value in it is already rendered into the
+    # HTML of login.html, which is served to anonymous visitors today.
+    '/api/public-config',
 )
 
 # Once signed in, a brand-new user is held at /setup-profile until they
@@ -2928,6 +2935,17 @@ def api_admin_create_user():
 
     if not email or '@' not in email:
         return jsonify({'status': 'error', 'message': 'A valid email is required'}), 400
+
+    # Reject markup in the display name explicitly. Without this the request is
+    # refused further out by the proxy, which returns a bare 403 with no body —
+    # the admin sees "Request failed (403)" and has no idea which field to fix.
+    # The name is rendered in the roster and the audit log, so this is also the
+    # right place to keep angle brackets out of stored data.
+    if re.search(r'[<>]', name):
+        return jsonify({
+            'status': 'error',
+            'message': "Full name cannot contain the characters < or >.",
+        }), 400
     if len(password) < 8:
         return jsonify({'status': 'error',
                         'message': 'Password must be at least 8 characters'}), 400
@@ -3607,6 +3625,21 @@ def start_runtime():
 # sends real email. Do not import this module in a test.
 if os.environ.get("TI_SKIP_RUNTIME", "").strip() not in ("1", "true", "yes"):
     start_runtime()
+
+
+# Optional React front end (frontend/). Adds /api/public-config and serves the
+# built bundle under /app/ — a prefix nothing else uses. Every existing route,
+# template and background job is unaffected, and deleting frontend_bridge.py
+# along with this block restores the previous behaviour exactly.
+#
+# Wrapped because the dashboard hosts the scheduler, the delivery poller and
+# the approval callbacks: a missing or broken front end must never be the
+# reason this process fails to start.
+try:
+    import frontend_bridge
+    frontend_bridge.mount(app)
+except Exception as _e:  # noqa: BLE001 - startup must survive anything here
+    logger.warning(f"React front end not mounted ({_e}); Jinja pages unaffected.")
 
 
 if __name__ == '__main__':

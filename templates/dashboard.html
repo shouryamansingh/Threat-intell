@@ -160,6 +160,17 @@
 
         /* ─── Left collapsing sidebar (hover-to-expand) ──────────── */
         :root { --sidebar-w-collapsed: 60px; --sidebar-w-expanded: 220px; }
+
+        /* One content width across every section. This page lays out on
+           Bootstrap's .container, which is 1320px at >=1400px viewports, while
+           Admin, Users & Access and My Account all cap at 72rem (1152px) — so
+           the column visibly resized on every navigation.
+           Only overridden from the xl breakpoint up: below that Bootstrap's
+           540/720/960px steps are narrower than 72rem anyway and still do the
+           right thing, so leaving them alone keeps small screens untouched. */
+        @media (min-width: 1200px) {
+            .container { max-width: 72rem; }
+        }
         .app-sidebar {
             position: fixed; top: 0; left: 0; bottom: 0;
             width: var(--sidebar-w-collapsed);
@@ -1738,15 +1749,23 @@
                             <div class="col-md-6">
                                 <div class="status-card">
                                     <h5><i class="fas fa-chart-pie"></i> Approval Statistics</h5>
-                                    <canvas id="approvalChart" width="400" height="200"></canvas>
+                                    <div id="approvalChartWrap">
+                                        <canvas id="approvalChart" width="400" height="200"></canvas>
+                                    </div>
+                                    <div id="approvalChartEmpty" class="analytics-empty" style="display:none;">
+                                        <i class="fas fa-chart-pie"></i>
+                                        <p>No decisions yet</p>
+                                        <span>Approve or reject a report and the split appears here.</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="status-card">
                                     <h5><i class="fas fa-chart-bar"></i> Source Performance</h5>
                                     <div id="sourceStats">
-                                        <div class="text-center text-muted">
-                                            <i class="fas fa-spinner fa-spin"></i> Loading analytics...
+                                        <div class="analytics-empty">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                            <p>Loading analytics…</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1758,6 +1777,20 @@
             </div>
         </div>
     </div>
+
+    <style>
+      /* Empty states for the Analytics cards. Previously a card with no data
+         rendered as a header over blank space, which reads as a failure
+         rather than as an absence. */
+      .analytics-empty {
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 6px; text-align: center;
+        padding: 30px 16px; color: #6b7280;
+      }
+      .analytics-empty i { font-size: 20px; opacity: .45; margin-bottom: 2px; }
+      .analytics-empty p { margin: 0; font-size: 14px; font-weight: 600; color: #4b5563; }
+      .analytics-empty span { font-size: 12.5px; color: #8b93a1; max-width: 32ch; }
+    </style>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2669,8 +2702,19 @@
             // Update approval rate
             document.getElementById('approvalRate').textContent = data.approval_rates.approval_rate + '%';
             
-            // Display source stats
+            // Display source stats.
+            // An empty array previously mapped to an empty string, leaving the
+            // card body blank with no explanation — which reads as broken
+            // rather than as "nothing has been collected yet".
             const sourceStats = document.getElementById('sourceStats');
+            if (!data.sources || !data.sources.length) {
+                sourceStats.innerHTML =
+                    '<div class="analytics-empty">' +
+                    '<i class="fas fa-database"></i>' +
+                    '<p>No source data yet</p>' +
+                    '<span>Run a scrape and these figures will fill in.</span>' +
+                    '</div>';
+            } else {
             sourceStats.innerHTML = data.sources.map(source => `
                 <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
                     <div>
@@ -2680,6 +2724,20 @@
                     <span class="badge bg-primary">${source.count}</span>
                 </div>
             `).join('');
+            }
+
+            // Same for the approval chart: with nothing approved or rejected
+            // there is no pie to draw, so say so instead of leaving a blank
+            // canvas sitting under a header.
+            const totals = data.approval_rates || {};
+            const decided = (totals.approved || 0) + (totals.rejected || 0);
+            const chartWrap = document.getElementById('approvalChartWrap');
+            const chartEmpty = document.getElementById('approvalChartEmpty');
+            if (chartWrap && chartEmpty) {
+                const bare = decided === 0;
+                chartWrap.style.display  = bare ? 'none' : '';
+                chartEmpty.style.display = bare ? '' : 'none';
+            }
         }
 
         async function deleteScrapingSession(sessionId, btn) {
