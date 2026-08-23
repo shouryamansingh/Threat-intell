@@ -3540,7 +3540,31 @@ def api_admin_save_settings():
         return jsonify({"status": "error", "errors": errors}), 400
     _write_admin_settings(current)
 
-    message = "Settings saved. Email/SMTP/limit changes are live now; schedule changes need a restart."
+    # Re-arm the cron jobs if any schedule field moved. The settings file is
+    # already written at this point, so a failure here degrades to "restart to
+    # apply" rather than losing the save.
+    SCHEDULE_FIELDS = {
+        'SCRAPING_DAY', 'SCRAPING_HOUR', 'SCRAPING_MINUTE',
+        'SOC_DELIVERY_DAYS', 'SOC_DELIVERY_HOUR', 'SOC_DELIVERY_MINUTE',
+    }
+    schedule_touched = bool(SCHEDULE_FIELDS & set(incoming))
+    rearmed = None
+    if schedule_touched:
+        try:
+            from scheduler import threat_scheduler
+            rearmed = threat_scheduler.reapply_schedules()
+        except Exception as e:
+            logger.warning(f"Schedule re-arm after settings save failed: {e}")
+
+    if schedule_touched and rearmed:
+        message = f"Settings saved and the schedule is live now ({rearmed})."
+        db.log_system_event('INFO', f"Schedule updated from the admin panel: {rearmed}",
+                            'SCHEDULER')
+    elif schedule_touched:
+        message = ("Settings saved. The schedule could not be re-armed on this "
+                   "process — restart the service to apply it.")
+    else:
+        message = "Settings saved. Email, SMTP and limit changes are live now."
     if skipped_locked:
         message += (
             " Not changed (pinned by environment variables on this server): "

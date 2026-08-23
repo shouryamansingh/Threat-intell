@@ -55,6 +55,24 @@ class ThreatIntelScheduler:
 
         logger.info(f"Threat Intelligence Scheduler initialized (timezone={config.APP_TIMEZONE})")
     
+    # monday=0 … sunday=6, matching datetime.weekday().
+    _DAY_NUM = {
+        'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+        'friday': 4, 'saturday': 5, 'sunday': 6,
+    }
+
+    @classmethod
+    def _delivery_weekdays(cls):
+        """Configured SOC delivery days as weekday numbers, sorted.
+
+        Falls back to Tuesday if the setting is empty or unrecognised, which
+        is what the schedule was hardcoded to before it was made configurable.
+        """
+        raw = getattr(config, 'SOC_DELIVERY_DAYS', None) or ['tuesday']
+        nums = sorted({cls._DAY_NUM[d.strip().lower()]
+                       for d in raw if str(d).strip().lower() in cls._DAY_NUM})
+        return nums or [1]
+
     def setup_weekly_scraping(self):
         """Setup weekly scraping - Every Monday at 10:00 AM"""
         # Convert day name to number (Monday = 0)
@@ -87,6 +105,40 @@ class ThreatIntelScheduler:
             f"{scraping_time.strftime('%I:%M %p')} {config.APP_TIMEZONE}"
         )
     
+    def reapply_schedules(self):
+        """Re-read the schedule settings and re-arm both cron jobs.
+
+        Called after the admin panel saves. Without it the panel wrote the new
+        day/time to admin_settings.json, the dashboard displayed the new value,
+        and APScheduler carried on with the trigger it built at startup — so the
+        UI said one thing and the system did another until someone restarted the
+        service. add_job(replace_existing=True) swaps the trigger in place; the
+        job ids are unchanged.
+
+        Returns a short human-readable summary, or None if nothing could be
+        re-armed (the caller treats that as "restart required" rather than
+        failing the save — the settings themselves are already written).
+        """
+        try:
+            self.setup_weekly_scraping()
+            self.setup_daily_soc_delivery()
+            t_scrape = config.SCRAPING_TIME
+            t_soc = config.SOC_DELIVERY_TIME
+            soc_days = ', '.join(
+                d.capitalize() for d in
+                (getattr(config, 'SOC_DELIVERY_DAYS', None) or ['tuesday'])
+            )
+            summary = (
+                f"scrape {config.SCRAPING_DAY.capitalize()} "
+                f"{t_scrape.strftime('%H:%M')}, "
+                f"delivery {soc_days} {t_soc.strftime('%H:%M')}"
+            )
+            logger.info(f"🔁 Schedules re-armed from settings: {summary}")
+            return summary
+        except Exception as e:
+            logger.error(f"Could not re-arm schedules after a settings save: {e}")
+            return None
+
     def setup_health_monitoring(self):
         """Run the health checks every 6 hours (plus once ~2 min after boot)
         and log problems to system_logs so they surface in the dashboard.
@@ -182,20 +234,32 @@ class ThreatIntelScheduler:
             logger.error(f"Health monitor crashed: {e}")
 
     def setup_daily_soc_delivery(self):
-        """Setup Tuesday SOC deliveries at 11:00 AM"""
-        # Check on Tuesday at 11:00 AM for pending SOC deliveries
-        
-        # Tuesday delivery at 11:00 AM
-        tuesday_trigger = CronTrigger(day_of_week=1, hour=11, minute=0, timezone=APP_TZ)  # Tuesday = 1, 11:00 AM
+        """Schedule the SOC delivery sweep on the configured day(s) and time.
+
+        This used to be pinned to Tuesday 11:00 in code while
+        SOC_DELIVERY_DAYS / _HOUR / _MINUTE were editable in the admin panel
+        and shown on the dashboard — so the panel could say Wednesday 15:00
+        while deliveries kept going out on Tuesday at 11.
+        """
+        days = self._delivery_weekdays()
+        t = config.SOC_DELIVERY_TIME
+        trigger = CronTrigger(
+            day_of_week=','.join(str(d) for d in days),
+            hour=t.hour, minute=t.minute, timezone=APP_TZ
+        )
         self.scheduler.add_job(
             func=self.process_soc_deliveries,
-            trigger=tuesday_trigger,
-            id='tuesday_soc_delivery',
-            name='Tuesday SOC Delivery Processing',
+            trigger=trigger,
+            id='tuesday_soc_delivery',   # id kept: replace_existing must match
+            name='SOC Delivery Processing',
             replace_existing=True
         )
-        
-        logger.info("✅ Tuesday SOC delivery processing scheduled for 11:00 AM (One news per Tuesday)")
+        names = ', '.join(d.capitalize() for d in
+                          (getattr(config, 'SOC_DELIVERY_DAYS', None) or ['tuesday']))
+        logger.info(
+            f"✅ SOC delivery processing scheduled for {names} at "
+            f"{t.strftime('%I:%M %p')} {config.APP_TIMEZONE}"
+        )
     
     def setup_persistent_delivery_monitoring(self):
         """Setup persistent delivery monitoring with enhanced scheduler.
@@ -266,7 +330,7 @@ class ThreatIntelScheduler:
                         
                         if not success and delivery['retry_count'] < 3:
                             # Schedule retry in 30 minutes
-                            retry_time = datetime.now(pytz.timezone("Asia/Kolkata")) + timedelta(minutes=30)
+                            retry_time = datetime.now(APP_TZ) + timedelta(minutes=30)
                             logger.info(f"🔄 Scheduling retry for delivery {delivery['id']} at {retry_time}")
                             
                     except Exception as e:
@@ -351,8 +415,7 @@ class ThreatIntelScheduler:
             import sqlite3
             
             # ⏰ STEP 1: Capture CURRENT system time at approval moment
-            ist_tz = pytz.timezone("Asia/Kolkata")
-            approval_time = datetime.now(ist_tz)
+            approval_time = datetime.now(APP_TZ)
             
             logger.info(f"🕐 APPROVAL RECEIVED at: {approval_time.strftime('%A, %B %d, %Y at %I:%M:%S %p IST')}")
             
@@ -720,8 +783,9 @@ class ThreatIntelScheduler:
         """
         Calculate the SOC delivery slot.
 
-        Policy: every approved article goes out on the SAME upcoming Tuesday
-        at 11:00 AM IST. Each `position` adds a small 2-minute stagger so
+        Policy: every approved article goes out in the SAME upcoming delivery
+        slot — the next configured SOC_DELIVERY_DAYS at SOC_DELIVERY_TIME.
+        Each `position` adds a small 2-minute stagger so
         we don't fire N SMTP sends in the same instant (Gmail rate-limits
         bursts) — but the date never shifts to a later Tuesday. This
         replaces the old behaviour where position pushed deliveries 1
@@ -732,31 +796,41 @@ class ThreatIntelScheduler:
             approval_time: Manager approval time (IST, tz-aware).
 
         Returns:
-            Delivery datetime on the next eligible Tuesday at 11:00 AM IST
+            Delivery datetime in the next eligible configured slot
             (+ a 2 × position minute offset).
         """
         try:
+            days = self._delivery_weekdays()
+            slot = config.SOC_DELIVERY_TIME
             current_weekday = approval_time.weekday()   # 0=Mon … 6=Sun
-            current_hour    = approval_time.hour
 
             logger.info(
                 f"🕐 Approval Time: "
-                f"{approval_time.strftime('%A, %B %d, %Y at %I:%M:%S %p IST')}"
+                f"{approval_time.strftime('%A, %B %d, %Y at %I:%M:%S %p')} "
+                f"{config.APP_TIMEZONE}"
             )
 
-            # Find the next Tuesday-at-11:00 from the approval moment.
-            if current_weekday == 1 and current_hour < 11:
-                days_to_tuesday = 0          # today (Tuesday before 11 AM)
-            elif current_weekday == 1:
-                days_to_tuesday = 7          # today (Tuesday after 11 AM) → next week
-            else:
-                days_to_tuesday = (1 - current_weekday) % 7
-                if days_to_tuesday == 0:
-                    days_to_tuesday = 7
+            # Next configured delivery day at the configured time. Today counts
+            # only if that time has not already passed; otherwise look ahead.
+            # Tuesday 11:00 used to be written into this arithmetic, which made
+            # the admin panel's delivery-day and delivery-time fields decorative.
+            after_slot_today = (
+                (approval_time.hour, approval_time.minute) >= (slot.hour, slot.minute)
+            )
+            offset = None
+            for delta in range(0, 8):
+                if delta == 0 and after_slot_today:
+                    continue
+                if (current_weekday + delta) % 7 in days:
+                    offset = delta
+                    break
+            if offset is None:          # unreachable with a non-empty day set
+                offset = 7
 
-            base = approval_time + timedelta(days=days_to_tuesday)
-            base = base.replace(hour=11, minute=0, second=0, microsecond=0)
-            logger.info(f"   📍 Upcoming Tuesday: {base.strftime('%A, %B %d, %Y at %I:%M %p')}")
+            base = approval_time + timedelta(days=offset)
+            base = base.replace(hour=slot.hour, minute=slot.minute,
+                                second=0, microsecond=0)
+            logger.info(f"   📍 Next delivery slot: {base.strftime('%A, %B %d, %Y at %I:%M %p')}")
 
             # Stagger by minutes (NOT weeks) so all articles approved this
             # week land on the same Tuesday.
@@ -769,9 +843,10 @@ class ThreatIntelScheduler:
 
         except Exception as e:
             logger.error(f"❌ Error calculating delivery slot: {e}")
-            ist_tz = pytz.timezone("Asia/Kolkata")
-            fallback = datetime.now(ist_tz) + timedelta(days=7)
-            fallback = fallback.replace(hour=11, minute=0, second=0, microsecond=0)
+            slot = config.SOC_DELIVERY_TIME
+            fallback = datetime.now(APP_TZ) + timedelta(days=7)
+            fallback = fallback.replace(hour=slot.hour, minute=slot.minute,
+                                        second=0, microsecond=0)
             logger.warning(f"⚠️ Using fallback: {fallback.strftime('%A, %B %d at %I:%M %p')}")
             return fallback
     
@@ -863,7 +938,7 @@ class ThreatIntelScheduler:
                 return
             
             # Check if any article should be delivered today
-            today = datetime.now(pytz.timezone("Asia/Kolkata")).date()
+            today = datetime.now(APP_TZ).date()
             
             # Get last delivery date from database
             import sqlite3
