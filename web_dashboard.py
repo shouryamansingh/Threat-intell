@@ -1055,6 +1055,7 @@ system_status = {
     'pending_approvals': 0,
     'scheduled_deliveries': 0,
     'next_delivery': None,
+    'config_warnings': [],
     'system_health': 'good'
 }
 
@@ -1098,6 +1099,22 @@ def update_system_status():
             'SELECT MIN(scheduled_time) FROM soc_deliveries WHERE status = "pending"'
         )
         system_status['next_delivery'] = cursor.fetchone()[0]
+
+        # Settings whose absence stops the workflow silently. Without this the
+        # only symptom of a blank recipient is mail that never arrives and a
+        # row in system_logs nobody is watching.
+        warnings = []
+        if not str(getattr(config, 'MANAGER_EMAIL', '') or '').strip():
+            warnings.append(
+                "No manager address configured — approval emails cannot be sent. "
+                "Set it in Admin → Email accounts."
+            )
+        if not str(getattr(config, 'SOC_EMAIL', '') or '').strip():
+            warnings.append(
+                "No SOC recipient configured — approved reports cannot be delivered. "
+                "Set it in Admin → Email accounts."
+            )
+        system_status['config_warnings'] = warnings
         
         # Get last scraping time
         cursor.execute('SELECT MAX(created_at) FROM news_articles')

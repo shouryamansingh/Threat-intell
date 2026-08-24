@@ -619,6 +619,18 @@ def validate_deployment():
             )
         if not _get_setting("SENDER_PASSWORD"):
             problems.append("No SENDER_PASSWORD configured — no email can be sent.")
+        # A blank recipient is as fatal as a missing password: the send fails
+        # with SMTPRecipientsRefused, which reads like an SMTP problem rather
+        # than a missing setting. Catch it at startup instead.
+        if not str(_get_setting("MANAGER_EMAIL") or "").strip():
+            problems.append(
+                "MANAGER_EMAIL is not set — approval requests have nowhere to "
+                "go, so the review step of the workflow cannot run."
+            )
+        if not str(_get_setting("SOC_EMAIL") or "").strip():
+            problems.append(
+                "SOC_EMAIL is not set — approved reports have nowhere to go."
+            )
         if not FIREBASE_CONFIGURED:
             problems.append(
                 "Firebase is not configured (TI_FIREBASE_API_KEY / "

@@ -302,7 +302,21 @@ class EmailSystem:
                 return False
             
             sender = config.SENDER_EMAIL
-            recipient = config.MANAGER_EMAIL
+            recipient = (config.MANAGER_EMAIL or "").strip()
+
+            # An unset recipient produced an empty To header, which smtplib
+            # turns into SMTPRecipientsRefused — caught below and logged as a
+            # generic SMTP failure. The real problem is a missing setting, so
+            # say that instead of making someone read a stack trace to find it.
+            if not recipient:
+                msg = ("No manager address is configured, so the approval email "
+                       "has nowhere to go. Set it in Admin → Email accounts "
+                       "(or TI_MANAGER_EMAIL on the server).")
+                print(f"❌ {msg}", flush=True)
+                db.log_system_event('ERROR', msg, 'EMAIL_SYSTEM')
+                self._last_error = msg
+                return False
+
             print(f"📧 Preparing to send {len(articles)} articles from {sender} -> {recipient} via {config.SMTP_SERVER}:{config.SMTP_PORT}", flush=True)
             print(f"📧 Article IDs: {[a['id'] for a in articles]}", flush=True)
 
@@ -339,14 +353,28 @@ class EmailSystem:
         try:
             if not articles:
                 return False
-            
+
+            # Same failure mode as the manager email: an unset SOC address
+            # becomes an empty To header and smtplib refuses the send with an
+            # error that says nothing about the cause. CC alone is not enough —
+            # a message needs a To.
+            soc_to = (config.SOC_EMAIL or "").strip()
+            if not soc_to:
+                msg = ("No SOC recipient is configured, so approved reports have "
+                       "nowhere to go. Set it in Admin → Email accounts "
+                       "(or TI_SOC_EMAIL on the server).")
+                print(f"❌ {msg}", flush=True)
+                db.log_system_event('ERROR', msg, 'EMAIL_SYSTEM')
+                self._last_error = msg
+                return False
+
             # Create message with Notable Global Cyber Threat title (use "mixed" for attachments)
             message = MIMEMultipart("mixed")
             # Remove numbering (e.g., "01. ", "02. ") from title for subject
             clean_title = re.sub(r'^\d+\.\s*', '', articles[0]['title'])
             message["Subject"] = f"Notable Global Cyber Threat – \"{clean_title}\""
             message["From"] = config.SENDER_EMAIL
-            message["To"] = config.SOC_EMAIL
+            message["To"] = soc_to
             # Add CC recipients (read live)
             soc_cc = config.SOC_EMAIL_CC
             if soc_cc:
