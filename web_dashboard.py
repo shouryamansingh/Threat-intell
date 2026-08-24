@@ -1054,6 +1054,7 @@ system_status = {
     'last_email_sent': None,
     'pending_approvals': 0,
     'scheduled_deliveries': 0,
+    'next_delivery': None,
     'system_health': 'good'
 }
 
@@ -1089,6 +1090,14 @@ def update_system_status():
         # Count scheduled deliveries
         cursor.execute('SELECT COUNT(*) FROM soc_deliveries WHERE status = "pending"')
         system_status['scheduled_deliveries'] = cursor.fetchone()[0]
+
+        # …and when the earliest one actually goes out. The dashboard had a
+        # "Next Delivery" field that nothing ever wrote to, so it showed
+        # "Loading..." permanently.
+        cursor.execute(
+            'SELECT MIN(scheduled_time) FROM soc_deliveries WHERE status = "pending"'
+        )
+        system_status['next_delivery'] = cursor.fetchone()[0]
         
         # Get last scraping time
         cursor.execute('SELECT MAX(created_at) FROM news_articles')
@@ -2137,7 +2146,13 @@ def get_analytics():
         cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "pending"')
         pending = cursor.fetchone()[0]
         
-        total = approved + rejected + pending
+        # The rate is "approved out of what a manager actually decided".
+        # It used to divide by approved + rejected + PENDING, so ten articles
+        # sitting in the review queue dragged the figure toward zero — one
+        # approval out of one decision showed as 1.3% rather than 100%. An
+        # article nobody has looked at yet is not a rejection.
+        decided = approved + rejected
+        total = decided + pending
         
         # Source breakdown (only for workflow articles)
         cursor.execute("""
@@ -2169,7 +2184,8 @@ def get_analytics():
                 'rejected': rejected,
                 'pending': pending,
                 'total': total,
-                'approval_rate': round((approved / total * 100) if total > 0 else 0, 1)
+                'decided': decided,
+                'approval_rate': round((approved / decided * 100) if decided > 0 else 0, 1)
             },
             'sources': sources,
             'recent_activity': activity
@@ -2695,6 +2711,7 @@ def api_admin_refresh_everything():
     _set_operation('Project reset — ready to scrape.', 'done')
     system_status['pending_approvals'] = 0
     system_status['scheduled_deliveries'] = 0
+    system_status['next_delivery'] = None
     system_status['last_scraping'] = None
     system_status['last_email_sent'] = None
     try:
