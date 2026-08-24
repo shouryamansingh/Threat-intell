@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 import re
+import tempfile
+import os
 from dataclasses import dataclass
 
 from config import COMPANY_NAME, SOC_EMAIL, ENFORCE_NUMBERING_1_TO_10
@@ -1211,11 +1213,17 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
             safe_title = re.sub(r'[-\s]+', '_', safe_title)
             safe_title = safe_title[:50]  # Limit length
             filename = f"{safe_title}_Threat_Analysis.xlsx"
-            
-            # Save file
-            wb.save(filename)
-            
-            return filename
+
+            # Writable temp directory, not the working directory: under the
+            # hardened systemd unit /opt/threatintel is read-only, so a bare
+            # relative filename raised "Read-only file system" and the caller
+            # silently sent the email with no attachment. Callers delete the
+            # file after attaching, and PrivateTmp gives this service its own
+            # /tmp, so nothing accumulates.
+            path = os.path.join(tempfile.gettempdir(), filename)
+            wb.save(path)
+
+            return path
             
         except Exception as e:
             print(f"Error generating Excel file: {e}")

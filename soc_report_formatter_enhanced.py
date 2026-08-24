@@ -5,6 +5,8 @@ Focuses on extracting REAL content from articles with clear, understandable summ
 from datetime import datetime
 from typing import Dict, List, Optional
 import re
+import tempfile
+import os
 from dataclasses import dataclass, field
 from bs4 import BeautifulSoup
 
@@ -2168,9 +2170,24 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
             safe_title = re.sub(r'[^\w\s-]', '', report.title)
             safe_title = re.sub(r'[-\s]+', '_', safe_title)[:50]
             filename = f"{safe_title}_Threat_Analysis.xlsx"
-            
-            wb.save(filename)
-            return filename
+
+            # Write into a writable temp directory, not the process's working
+            # directory. Under the hardened systemd unit the working directory
+            # is /opt/threatintel, which ProtectSystem=strict mounts read-only —
+            # so a bare relative filename raised "Read-only file system", the
+            # except below turned it into a log line, and every report email
+            # went out with no attachment while its body still said "refer to
+            # the attached Excel document".
+            #
+            # tempfile is right rather than a persistent directory: every caller
+            # deletes the file straight after attaching it, and PrivateTmp=true
+            # in the unit gives the service its own /tmp that is cleared on
+            # restart. The basename is unchanged, so the recipient still sees
+            # the report title as the attachment name.
+            path = os.path.join(tempfile.gettempdir(), filename)
+
+            wb.save(path)
+            return path
             
         except Exception as e:
             db.log_system_event('ERROR', f'Error generating Excel file: {e}', 'EXCEL_GENERATOR')
