@@ -293,6 +293,15 @@ if _ADMIN_SETTINGS_PATH != _LEGACY_ADMIN_SETTINGS_PATH and not os.path.exists(
         # Not fatal: the panel will write a fresh file on first save.
         pass
 
+# Automatic project reset. Hours after the manager email goes out before the
+# workflow is cleared — but only once nothing is left that a reset would
+# destroy: no articles awaiting review, no deliveries still queued. A bare
+# timer would fire on Tuesday morning and wipe the approved reports an hour
+# before their Tuesday 11:00 send.
+#
+# 0 disables it entirely; the Refresh Project button is unaffected either way.
+AUTO_REFRESH_HOURS = int(os.environ.get("TI_AUTO_REFRESH_HOURS", "24"))
+
 SOC_DELIVERY_DELAY_HOURS = 0  # Hours to wait before sending first approved news to SOC (0 = immediate)
 
 # How long system_logs / activity_log rows and old rejected articles are kept.

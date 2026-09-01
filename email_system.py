@@ -338,6 +338,14 @@ class EmailSystem:
                 server.send_message(message)
 
             print(f"✅ Manager email sent successfully to {recipient} ({len(articles)} articles)", flush=True)
+            # Logged on success as well as failure: the auto-refresh sweep needs
+            # a durable "when did the cycle last go out" timestamp, and
+            # system_logs is the one table a project reset deliberately keeps.
+            db.log_system_event(
+                'INFO',
+                f'Manager approval email sent to {recipient} ({len(articles)} articles)',
+                'MANAGER_EMAIL_SENT'
+            )
             self._last_error = None
             return True
 

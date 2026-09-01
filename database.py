@@ -702,6 +702,77 @@ class ThreatIntelDB:
         conn.close()
         return stats
     
+    # Tables a project reset clears. system_logs is deliberately absent: it is
+    # the audit trail, and it carries the timestamp the auto-refresh sweep
+    # measures 24 hours from.
+    WORKFLOW_TABLES = (
+        "sender_validations",
+        "soc_deliveries",
+        "manager_approvals",
+        "news_articles",
+        "scraping_sessions",
+    )
+
+    def reset_workflow(self):
+        """Clear the workflow tables and return {table: rows_deleted}.
+
+        Extracted so the Refresh Project button and the automatic sweep run the
+        same code — two copies of a destructive operation is how they end up
+        deleting different things.
+        """
+        counts = {}
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            conn.execute("PRAGMA busy_timeout=30000")
+            cur = conn.cursor()
+            for tbl in self.WORKFLOW_TABLES:
+                counts[tbl] = cur.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
+                cur.execute(f"DELETE FROM {tbl}")
+            conn.commit()
+        finally:
+            conn.close()
+        return counts
+
+    def workflow_is_settled(self):
+        """(settled, reason) — is there anything left that a reset would destroy?
+
+        Guards the automatic sweep. A 24-hour timer alone would fire on Tuesday
+        morning and delete the approved articles an hour before their Tuesday
+        11:00 delivery, along with any queue the manager had not reached yet.
+        """
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            cur = conn.cursor()
+            pending_articles = cur.execute(
+                "SELECT COUNT(*) FROM news_articles WHERE status = 'pending'"
+            ).fetchone()[0]
+            if pending_articles:
+                return False, f"{pending_articles} article(s) still awaiting manager review"
+            open_deliveries = cur.execute(
+                "SELECT COUNT(*) FROM soc_deliveries "
+                "WHERE status IN ('pending', 'scheduled', 'sending')"
+            ).fetchone()[0]
+            if open_deliveries:
+                return False, f"{open_deliveries} delivery/deliveries not yet sent"
+        finally:
+            conn.close()
+        return True, "nothing pending"
+
+    def last_manager_email_at(self):
+        """When the manager approval email last went out, or None.
+
+        Read from system_logs because that table survives a reset — the tables
+        that would otherwise carry the timestamp are the ones being cleared.
+        """
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            row = conn.execute(
+                "SELECT MAX(timestamp) FROM system_logs WHERE component = 'MANAGER_EMAIL_SENT'"
+            ).fetchone()
+        finally:
+            conn.close()
+        return row[0] if row and row[0] else None
+
     def cleanup_old_records(self, days: int = 90, audit_days: int = None,
                             session_days: int = None, content_days: int = None,
                             vacuum: bool = True):

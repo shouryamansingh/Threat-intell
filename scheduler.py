@@ -53,6 +53,9 @@ class ThreatIntelScheduler:
         # Bounded log growth. Without this the retention function was dead code.
         self.setup_log_retention()
 
+        # Clears the workflow once a cycle is finished and 24h have passed.
+        self.setup_auto_refresh()
+
         logger.info(f"Threat Intelligence Scheduler initialized (timezone={config.APP_TIMEZONE})")
     
     # monday=0 … sunday=6, matching datetime.weekday().
@@ -188,6 +191,99 @@ class ThreatIntelScheduler:
             f"✅ Log retention scheduled daily at 03:40 {config.APP_TIMEZONE} "
             f"(keeping {config.LOG_RETENTION_DAYS} days)"
         )
+
+    def setup_auto_refresh(self):
+        """Hourly check for a finished cycle that is old enough to clear.
+
+        Hourly rather than a one-shot timer because the condition is not just
+        elapsed time: the sweep waits for the manager to finish reviewing and
+        for the deliveries to actually go out, and neither happens on a
+        schedule. Checking every hour costs three cheap COUNT queries.
+        """
+        if config.AUTO_REFRESH_HOURS <= 0:
+            logger.info("ℹ️ Automatic project refresh disabled (TI_AUTO_REFRESH_HOURS=0)")
+            return
+        self.scheduler.add_job(
+            func=self.run_auto_refresh_check,
+            trigger=CronTrigger(minute=20, timezone=APP_TZ),
+            id='auto_refresh',
+            name=f'Auto project refresh ({config.AUTO_REFRESH_HOURS}h after the cycle completes)',
+            replace_existing=True
+        )
+        logger.info(
+            f"✅ Automatic project refresh scheduled hourly — clears the workflow "
+            f"{config.AUTO_REFRESH_HOURS}h after the manager email, once nothing is pending"
+        )
+
+    def run_auto_refresh_check(self):
+        """Clear the workflow if — and only if — the cycle is genuinely done.
+
+        Three conditions, all required:
+          * the manager email went out at least AUTO_REFRESH_HOURS ago
+          * no articles are awaiting review
+          * no deliveries are queued, scheduled or mid-send
+
+        Anything else and it holds and says why. A reset deletes articles,
+        approvals and deliveries outright, so "probably finished" is not a good
+        enough reason to run one.
+        """
+        try:
+            if config.AUTO_REFRESH_HOURS <= 0:
+                return
+
+            sent_at = db.last_manager_email_at()
+            if not sent_at:
+                return          # nothing has been sent yet; nothing to clear
+
+            try:
+                sent_dt = datetime.fromisoformat(str(sent_at))
+            except ValueError:
+                logger.warning(f"Auto-refresh: unparseable timestamp {sent_at!r}; skipping")
+                return
+            if sent_dt.tzinfo is None:
+                sent_dt = APP_TZ.localize(sent_dt)
+
+            age_h = (datetime.now(APP_TZ) - sent_dt).total_seconds() / 3600.0
+            if age_h < config.AUTO_REFRESH_HOURS:
+                return          # too soon — quiet, this runs every hour
+
+            settled, reason = db.workflow_is_settled()
+            if not settled:
+                # Logged once an hour while it waits: if a cycle never clears,
+                # this is the record of what it was waiting for.
+                logger.info(f"⏸️ Auto-refresh held ({age_h:.0f}h since the email): {reason}")
+                db.log_system_event(
+                    'INFO',
+                    f"Automatic refresh held — {reason} ({age_h:.0f}h since the manager email)",
+                    'AUTO_REFRESH'
+                )
+                return
+
+            counts = db.reset_workflow()
+            total = sum(counts.values())
+
+            # One-off delivery jobs reference articles that no longer exist.
+            cancelled = 0
+            for j in list(self.scheduler.get_jobs()):
+                if j.id.startswith('manual-delivery-') or j.id.startswith('soc_delivery_'):
+                    try:
+                        self.scheduler.remove_job(j.id)
+                        cancelled += 1
+                    except Exception:
+                        pass
+
+            summary = {k: v for k, v in counts.items() if v}
+            logger.info(f"🧹 Automatic project refresh: cleared {total} rows {summary}")
+            db.log_system_event(
+                'WARNING',
+                f"Automatic project refresh cleared {total} rows ({summary}); "
+                f"{cancelled} scheduled job(s) cancelled. "
+                f"Cycle completed {age_h:.0f}h ago with nothing pending.",
+                'AUTO_REFRESH'
+            )
+        except Exception as e:
+            logger.error(f"Auto-refresh check failed: {e}")
+            db.log_system_event('ERROR', f"Auto-refresh check failed: {e}", 'AUTO_REFRESH')
 
     def run_log_retention(self):
         """Execute the retention sweep, recording the outcome in system_logs."""

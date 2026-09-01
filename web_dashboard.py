@@ -2696,27 +2696,11 @@ def api_admin_refresh_everything():
     articles they reference are gone."""
     from scheduler import threat_scheduler
 
-    tables_to_clear = [
-        "sender_validations",
-        "soc_deliveries",
-        "manager_approvals",
-        "news_articles",
-        "scraping_sessions",
-    ]
-    cleared_counts = {}
-    total = 0
+    # Shared with scheduler.run_auto_refresh_check — one implementation of a
+    # destructive operation rather than two that can drift.
     try:
-        conn = sqlite3.connect(db.db_path, timeout=30)
-        conn.execute("PRAGMA busy_timeout=30000")
-        cur = conn.cursor()
-        for tbl in tables_to_clear:
-            cur.execute(f"SELECT COUNT(*) FROM {tbl}")
-            n = cur.fetchone()[0]
-            cleared_counts[tbl] = n
-            total += n
-            cur.execute(f"DELETE FROM {tbl}")
-        conn.commit()
-        conn.close()
+        cleared_counts = db.reset_workflow()
+        total = sum(cleared_counts.values())
     except Exception as e:
         logger.error(f"refresh-everything failed during DB clear: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
