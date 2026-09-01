@@ -469,7 +469,13 @@ class ThreatIntelScheduler:
                     success = email_system.send_manager_approval_email(articles)
                     
                     if success:
-                        logger.info(f"Manager approval email sent with {len(articles)} articles")
+                        # Without this the articles stay in the queue and the
+                        # next run mails the same ten again.
+                        moved = db.mark_sent_to_manager([a['id'] for a in articles])
+                        logger.info(
+                            f"Manager approval email sent with {len(articles)} articles "
+                            f"({moved} moved to awaiting-decision)"
+                        )
                         db.log_system_event(
                             'INFO',
                             f'Weekly scraping completed. {len(articles)} articles sent to manager for approval.',

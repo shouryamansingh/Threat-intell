@@ -365,6 +365,23 @@ class ThreatIntelDB:
                 cursor.execute("ALTER TABLE user_profiles ADD COLUMN auth_provider TEXT DEFAULT 'firebase'")
                 print("✅ Added auth_provider column to user_profiles")
 
+            # One-time repair: before articles were marked when emailed, every
+            # scraped row sat in 'pending'. An article with no manager_approvals
+            # row was never decided on, and the ones actually emailed will simply
+            # be sent once more — harmless, and better than leaving the rest
+            # permanently invisible to the workflow.
+            try:
+                moved = cursor.execute("""
+                    UPDATE news_articles SET status = 'scraped'
+                    WHERE status = 'pending'
+                      AND id NOT IN (SELECT article_id FROM manager_approvals)
+                      AND id NOT IN (SELECT article_id FROM soc_deliveries)
+                """).rowcount
+                if moved:
+                    print(f"✅ Requeued {moved} article(s) that were never sent to the manager")
+            except sqlite3.OperationalError:
+                pass   # tables not created yet on a fresh database
+
             if 'password_hash' not in profile_columns:
                 cursor.execute('ALTER TABLE user_profiles ADD COLUMN password_hash TEXT')
                 print("✅ Added password_hash column to user_profiles")
@@ -390,8 +407,9 @@ class ThreatIntelDB:
         try:
             cursor.execute('''
                 INSERT INTO news_articles 
-                (title, summary, content, url, source, keywords, relevance_score, published_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (title, summary, content, url, source, keywords, relevance_score,
+                 published_date, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scraped')
             ''', (title, summary, content, url, source, json.dumps(keywords), 
                   relevance_score, published_date))
             
@@ -405,15 +423,55 @@ class ThreatIntelDB:
         finally:
             conn.close()
     
+    def mark_sent_to_manager(self, article_ids):
+        """Move articles from the queue into "awaiting a manager decision".
+
+        This step did not exist. Articles were emailed and left as they were,
+        so the next run picked the same top ten by relevance, and the count on
+        the dashboard described every scraped article as "awaiting manager
+        review" when only ten had ever been sent.
+        """
+        ids = [int(i) for i in (article_ids or []) if i is not None]
+        if not ids:
+            return 0
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            placeholders = ",".join("?" * len(ids))
+            cur = conn.execute(
+                f"UPDATE news_articles SET status = 'pending' "
+                f"WHERE id IN ({placeholders}) AND status = 'scraped'",
+                ids,
+            )
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
+    def queued_article_count(self):
+        """Articles collected but not yet sent to the manager."""
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM news_articles WHERE status = 'scraped'"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+
     def get_pending_articles_for_manager(self, limit: int = 10) -> List[Dict]:
-        """Get top articles for manager approval"""
+        """Top articles from the queue that have not been sent to the manager.
+
+        Selects 'scraped' — articles collected but not yet emailed. It used to
+        select 'pending', which was also the status of articles already sitting
+        with the manager, so every run re-sent the same highest-scoring ten and
+        everything below them was never seen by anyone.
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             SELECT id, title, summary, content, url, source, relevance_score, scraped_date
-            FROM news_articles 
-            WHERE status = 'pending'
+            FROM news_articles
+            WHERE status = 'scraped'
             ORDER BY relevance_score DESC, scraped_date DESC
             LIMIT ?
         ''', (limit,))

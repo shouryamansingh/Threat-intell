@@ -1512,7 +1512,8 @@
                                             <p><strong>System Status:</strong> <span id="systemMode">Operational</span></p>
                                         </div>
                                         <div class="col-md-6">
-                                            <p><strong>Pending Manager Approvals:</strong> <span id="pendingApprovals">{{ status.pending_approvals or 0 }}</span></p>
+                                            <p><strong>Awaiting manager decision:</strong> <span id="pendingApprovals">{{ status.pending_approvals or 0 }}</span></p>
+                                            <p><strong>Queued for the next email:</strong> <span id="queuedArticles">{{ status.queued_articles or 0 }}</span>{% if status.queued_articles %} <span class="text-muted" style="font-size:12.5px;">({{ status.pending_next_batch or 0 }} go next)</span>{% endif %}</p>
                                             <p><strong>Scheduled SOC Deliveries:</strong> <span id="scheduledSOC">{{ status.scheduled_deliveries or 0 }}</span></p>
                                             <p><strong>Next Delivery:</strong> <span id="nextDelivery">{{ status.next_delivery or 'None scheduled' }}</span></p>
                                         </div>

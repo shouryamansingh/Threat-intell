@@ -1055,6 +1055,7 @@ system_status = {
     'pending_approvals': 0,
     'scheduled_deliveries': 0,
     'next_delivery': None,
+    'queued_articles': 0,
     'pending_next_batch': 0,
     'config_warnings': [],
     'system_health': 'good'
@@ -1086,13 +1087,20 @@ def update_system_status():
         #
         # The cap also hardcoded 10 while MAX_NEWS_TO_MANAGER is configurable,
         # so raising that setting did not move the figure.
+        # Two genuinely different numbers, previously collapsed into one.
+        #   pending  — sent to the manager, waiting on a decision
+        #   scraped  — collected, queued, not sent to anyone yet
+        # The card used to report every scraped article as "awaiting manager
+        # review", so 76 collected articles read as 76 reviews outstanding when
+        # only ten had ever been emailed.
         cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "pending"')
         system_status['pending_approvals'] = cursor.fetchone()[0]
 
-        # How many of those go in the next manager email — a different question,
-        # kept separate rather than conflated with the one above.
+        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "scraped"')
+        system_status['queued_articles'] = cursor.fetchone()[0]
+
         system_status['pending_next_batch'] = min(
-            system_status['pending_approvals'],
+            system_status['queued_articles'],
             int(getattr(config, 'MAX_NEWS_TO_MANAGER', 10) or 10),
         )
         
@@ -1257,13 +1265,15 @@ def send_to_manager():
     """API endpoint to send current articles to manager for approval"""
     try:
         # Get pending articles (max 10)
-        articles = db.get_pending_articles_for_manager(10)
+        articles = db.get_pending_articles_for_manager(config.MAX_NEWS_TO_MANAGER)
         
         if not articles:
             return jsonify({'success': False, 'message': 'No articles found to send to manager'})
         
         # Send to manager
         success = email_system.send_manager_approval_email(articles)
+        if success:
+            db.mark_sent_to_manager([a['id'] for a in articles])
         
         if success:
             return jsonify({
@@ -1312,7 +1322,7 @@ def run_system_async():
         _set_operation(f'Ranking {total_scraped} articles to pick the top 10…', 'selecting')
         socketio.emit('status_update', system_status)
         
-        articles = db.get_pending_articles_for_manager(10)  # Top 10 articles
+        articles = db.get_pending_articles_for_manager(config.MAX_NEWS_TO_MANAGER)
         print(f"🔍 DEBUG: Retrieved {len(articles) if articles else 0} articles for manager email")
         
         if articles:
@@ -1328,6 +1338,8 @@ def run_system_async():
             
             try:
                 success = email_system.send_manager_approval_email(articles)
+                if success:
+                    db.mark_sent_to_manager([a['id'] for a in articles])
                 print(f"📧 DEBUG: Email send result: {success}")
                 
                 if success:
@@ -1641,10 +1653,12 @@ def fresh_scraping_async():
             socketio.emit('status_update', system_status)
             
             # Get the updated articles for email
-            articles_for_email = db.get_pending_articles_for_manager(10)
+            articles_for_email = db.get_pending_articles_for_manager(config.MAX_NEWS_TO_MANAGER)
             
             if articles_for_email:
                 success = email_system.send_manager_approval_email(articles_for_email)
+                if success:
+                    db.mark_sent_to_manager([a['id'] for a in articles_for_email])
 
                 if success:
                     _set_operation(
