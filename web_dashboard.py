@@ -1055,6 +1055,7 @@ system_status = {
     'pending_approvals': 0,
     'scheduled_deliveries': 0,
     'next_delivery': None,
+    'pending_next_batch': 0,
     'config_warnings': [],
     'system_health': 'good'
 }
@@ -1077,16 +1078,23 @@ def update_system_status():
         conn = sqlite3.connect(db.db_path, timeout=30)
         cursor = conn.cursor()
         
-        # Count pending approvals (top 10 articles ready for manager approval)
-        cursor.execute('''
-            SELECT COUNT(*) FROM (
-                SELECT id FROM news_articles 
-                WHERE status = "pending"
-                ORDER BY relevance_score DESC, created_at DESC 
-                LIMIT 10
-            )
-        ''')
+        # How many articles are actually awaiting review. This used to be
+        # wrapped in "LIMIT 10", so with 25 pending the card read 10 while the
+        # Analytics tab — which counts the same rows without a cap — read 25.
+        # Two numbers for one thing, and the smaller one was labelled "Articles
+        # awaiting manager review", which it was not.
+        #
+        # The cap also hardcoded 10 while MAX_NEWS_TO_MANAGER is configurable,
+        # so raising that setting did not move the figure.
+        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "pending"')
         system_status['pending_approvals'] = cursor.fetchone()[0]
+
+        # How many of those go in the next manager email — a different question,
+        # kept separate rather than conflated with the one above.
+        system_status['pending_next_batch'] = min(
+            system_status['pending_approvals'],
+            int(getattr(config, 'MAX_NEWS_TO_MANAGER', 10) or 10),
+        )
         
         # Count scheduled deliveries
         cursor.execute('SELECT COUNT(*) FROM soc_deliveries WHERE status = "pending"')
@@ -1096,7 +1104,7 @@ def update_system_status():
         # "Next Delivery" field that nothing ever wrote to, so it showed
         # "Loading..." permanently.
         cursor.execute(
-            'SELECT MIN(scheduled_time) FROM soc_deliveries WHERE status = "pending"'
+            'SELECT MIN(scheduled_for) FROM soc_deliveries WHERE status = "pending"'
         )
         system_status['next_delivery'] = cursor.fetchone()[0]
 
