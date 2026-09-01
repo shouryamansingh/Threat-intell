@@ -2696,6 +2696,9 @@ def api_admin_refresh_everything():
     DELIBERATELY KEEPS:
       - system_logs (audit trail)
       - admin_settings.json (your saved emails/SMTP/schedule)
+      - articles still in 'scraped' — collected but never emailed, so they
+        carry over and feed the next approval email instead of being
+        re-scraped from the same sources
     Also cancels any pending apscheduler one-off delivery jobs since the
     articles they reference are gone."""
     from scheduler import threat_scheduler
@@ -2703,8 +2706,9 @@ def api_admin_refresh_everything():
     # Shared with scheduler.run_auto_refresh_check — one implementation of a
     # destructive operation rather than two that can drift.
     try:
-        cleared_counts = db.reset_workflow()
+        cleared_counts = db.reset_workflow(preserve_queue=True)
         total = sum(cleared_counts.values())
+        kept_queue = db.queued_article_count()
     except Exception as e:
         logger.error(f"refresh-everything failed during DB clear: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2721,7 +2725,14 @@ def api_admin_refresh_everything():
 
     # Reset in-memory dashboard status so the UI doesn't show stale counts.
     system_status['running'] = False
-    _set_operation('Project reset — ready to scrape.', 'done')
+    if kept_queue:
+        # Say it plainly. Otherwise the articles still listed after a reset
+        # read as the reset having failed.
+        _set_operation(
+            f'Project reset — {kept_queue} un-emailed article(s) kept in the queue.',
+            'done')
+    else:
+        _set_operation('Project reset — ready to scrape.', 'done')
     system_status['pending_approvals'] = 0
     system_status['scheduled_deliveries'] = 0
     system_status['next_delivery'] = None
@@ -2735,7 +2746,8 @@ def api_admin_refresh_everything():
     # Audit trail line in system_logs (kept on purpose)
     db.log_system_event(
         'INFO',
-        f'Project refreshed by admin — cleared {total} rows ({", ".join(f"{k}={v}" for k, v in cleared_counts.items())}); cancelled {jobs_cancelled} pending job(s)',
+        f'Project refreshed by admin — cleared {total} rows ({", ".join(f"{k}={v}" for k, v in cleared_counts.items())}); '
+        f'kept {kept_queue} un-emailed article(s); cancelled {jobs_cancelled} pending job(s)',
         'ADMIN',
     )
 
