@@ -1920,7 +1920,11 @@ def get_news():
             FROM news_articles na
             LEFT JOIN manager_approvals ma ON na.id = ma.article_id AND ma.decision = 'approved'
             LEFT JOIN soc_deliveries sd ON na.id = sd.article_id
-            WHERE na.status IN ('pending', 'approved', 'rejected', 'manager_approved')
+            -- 'scraped' belongs here: it is the status a freshly collected
+            -- article now carries before it is emailed. Leaving it out made a
+            -- successful scrape look like a failed one — the articles were
+            -- stored, the list just would not show them.
+            WHERE na.status IN ('scraped', 'pending', 'approved', 'rejected', 'manager_approved')
         """
         params = []
         
@@ -2184,6 +2188,9 @@ def get_analytics():
         
         cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "pending"')
         pending = cursor.fetchone()[0]
+
+        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "scraped"')
+        queued = cursor.fetchone()[0]
         
         # The rate is "approved out of what a manager actually decided".
         # It used to divide by approved + rejected + PENDING, so ten articles
@@ -2191,13 +2198,13 @@ def get_analytics():
         # approval out of one decision showed as 1.3% rather than 100%. An
         # article nobody has looked at yet is not a rejection.
         decided = approved + rejected
-        total = decided + pending
+        total = decided + pending + queued
         
         # Source breakdown (only for workflow articles)
         cursor.execute("""
             SELECT source, COUNT(*) as count, AVG(relevance_score) as avg_score
             FROM news_articles 
-            WHERE status IN ('pending', 'approved', 'rejected')
+            WHERE status IN ('scraped', 'pending', 'approved', 'rejected')
             GROUP BY source 
             ORDER BY count DESC
         """)
@@ -2209,7 +2216,7 @@ def get_analytics():
             SELECT DATE(created_at) as date, COUNT(*) as count
             FROM news_articles 
             WHERE created_at >= date('now', '-7 days')
-            AND status IN ('pending', 'approved', 'rejected')
+            AND status IN ('scraped', 'pending', 'approved', 'rejected')
             GROUP BY DATE(created_at)
             ORDER BY date DESC
         """)
@@ -2222,6 +2229,7 @@ def get_analytics():
                 'approved': approved,
                 'rejected': rejected,
                 'pending': pending,
+                'queued': queued,
                 'total': total,
                 'decided': decided,
                 'approval_rate': round((approved / decided * 100) if decided > 0 else 0, 1)
