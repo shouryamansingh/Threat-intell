@@ -688,6 +688,7 @@
         .badge-ready           { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
         .badge-awaiting-sender { background: #fef3c7; color: #78350f; border: 1px solid #fcd34d; }
         .badge-sender-approved { background: var(--brand-tint); color: var(--brand-dark); border: 1px solid rgba(47,107,255,0.4); }
+        .badge-queued          { background: var(--slate-100); color: var(--slate-700); border: 1px solid var(--slate-300); }
 
         /* ─── Activity feed ───────────────────────────────────────── */
         .activity-feed { max-height: 400px; overflow-y: auto; }
@@ -2352,7 +2353,10 @@
                 `;
             }).join('');
             
-            updateStatusSummary(limitedArticles);
+            // Deliberately not updating the metric cards from this list.
+            // It is a capped, rendered subset, so tallying it overwrote the
+            // real database counts that /api/status supplies — that was the
+            // headline number flickering between 10 and 9.
         }
         
         function getWorkflowStatus(article) {
@@ -2369,29 +2373,17 @@
                 return '<span class="badge badge-rejected">Rejected</span>';
             } else if (article.status === 'pending') {
                 return '<span class="badge badge-pending">Pending Manager Review</span>';
+            } else if (article.status === 'scraped') {
+                // Collected, not yet in an approval email. Every article starts
+                // here now, so leaving it out showed the whole list as unknown.
+                return '<span class="badge badge-queued">Queued for Review</span>';
+            } else if (article.status === 'sender_rejected') {
+                return '<span class="badge badge-rejected">Sender Rejected</span>';
             } else {
                 return '<span class="badge badge-cancelled">Unknown Status</span>';
             }
         }
         
-        function updateStatusSummary(articles) {
-            let pending = 0, approved = 0, validated = 0, scheduled = 0;
-            
-            articles.forEach(article => {
-                if (article.status === 'pending') pending++;
-                if (article.manager_approved) approved++;
-                if (article.sender_validated) validated++;
-                if (article.soc_scheduled) scheduled++;
-            });
-            
-            // Update only elements that exist
-            const pendingEl = document.getElementById('pendingCount');
-            const scheduledEl = document.getElementById('scheduledCount');
-            
-            if (pendingEl) pendingEl.textContent = pending;
-            if (scheduledEl) scheduledEl.textContent = scheduled;
-        }
-
         function loadSchedule() {
             const tbody = document.getElementById('scheduleTableBody');
             tbody.innerHTML = '<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';

@@ -1571,7 +1571,7 @@ def fresh_scraping_async():
             return
 
         # Step 3: Get exactly 10 articles and number them 1-10 (NO DOUBLE NUMBERING)
-        _set_operation('Ranking the top 10 articles…', 'selecting')
+        _set_operation(f'Ranking the top {config.MAX_NEWS_TO_MANAGER} articles…', 'selecting')
         socketio.emit('status_update', system_status)
         
         # FIRST: Clean up any existing articles with multiple numbering
@@ -1597,88 +1597,70 @@ def fresh_scraping_async():
         conn.commit()
         conn.close()
         
-        # Get exactly 10 newly scraped articles
-        conn = sqlite3.connect(db.db_path, timeout=30)
-        cursor = conn.cursor()
-        
-        # Get exactly 10 articles that were just scraped
-        cursor.execute('''
-            SELECT id, title, summary, content, url, source, relevance_score, keywords, created_at
-            FROM news_articles 
-            WHERE status = 'pending'
-            ORDER BY relevance_score DESC, created_at DESC
-            LIMIT 10
-        ''')
-        
-        top_articles = cursor.fetchall()
-        
-        if top_articles:
-            # Update articles with proper numbering (1-10) - FIXED: No double numbering
-            for i, article_data in enumerate(top_articles, 1):
-                article_id = article_data[0]
-                original_title = article_data[1]
-                
-                # FIXED: Remove any existing numbering first, then add clean numbering
-                clean_title = original_title
-                # Remove all existing numbering patterns like "01. ", "1. ", "001. ", etc.
-                import re
-                clean_title = re.sub(r'^\d+\.\s*', '', clean_title)
-                # Also remove patterns like "#1. ", "#01. ", etc.
+        # Pick the batch through the same call that builds the email, so the
+        # numbering written to each title matches the order the manager sees.
+        # These were two separate queries with different tie-breakers
+        # (created_at here, scraped_date there), which numbered one set of
+        # articles and emailed another.
+        articles_for_email = db.get_pending_articles_for_manager(config.MAX_NEWS_TO_MANAGER)
+
+        if articles_for_email:
+            conn = sqlite3.connect(db.db_path, timeout=30)
+            cursor = conn.cursor()
+            total = len(articles_for_email)
+
+            for i, article in enumerate(articles_for_email, 1):
+                # Strip any numbering already on the title before adding ours,
+                # or a re-run yields "02. 01. Title".
+                clean_title = re.sub(r'^#?\d+\.\s*', '', article['title'])
                 clean_title = re.sub(r'^#?\d+\.\s*', '', clean_title)
-                # Remove multiple consecutive spaces
                 clean_title = re.sub(r'\s+', ' ', clean_title).strip()
-                
-                # Add clean numbering
                 numbered_title = f"{i:02d}. {clean_title}"
-                
-                cursor.execute('''
-                    UPDATE news_articles 
-                    SET title = ?, status = 'pending'
-                    WHERE id = ?
-                ''', (numbered_title, article_id))
-                
-                _set_operation(f'Ranked {i} of 10: {clean_title[:40]}…', 'selecting')
+
+                # Title only — the status stays 'scraped' until the email has
+                # actually gone out. mark_sent_to_manager() below makes the
+                # 'scraped' -> 'pending' move, so a send that fails leaves the
+                # batch in the queue for the next run instead of stranding it
+                # in a state nothing selects.
+                cursor.execute(
+                    'UPDATE news_articles SET title = ? WHERE id = ?',
+                    (numbered_title, article['id']))
+                article['title'] = numbered_title
+
+                _set_operation(f'Ranked {i} of {total}: {clean_title[:40]}…', 'selecting')
                 socketio.emit('status_update', system_status)
-        
-        conn.commit()
-        conn.close()
-        
+
+            conn.commit()
+            conn.close()
+
         # Step 4: Send to manager for approval
-        if top_articles:
+        if articles_for_email:
             # Keep this short: the header pill truncates at ~440px, and the
             # recipient is the part worth seeing mid-send.
             _set_operation(
-                f'Sending {len(top_articles)} articles to {config.MANAGER_EMAIL}…',
+                f'Sending {len(articles_for_email)} articles to {config.MANAGER_EMAIL}…',
                 'sending')
             socketio.emit('status_update', system_status)
-            
-            # Get the updated articles for email
-            articles_for_email = db.get_pending_articles_for_manager(config.MAX_NEWS_TO_MANAGER)
-            
-            if articles_for_email:
-                success = email_system.send_manager_approval_email(articles_for_email)
-                if success:
-                    db.mark_sent_to_manager([a['id'] for a in articles_for_email])
 
-                if success:
-                    _set_operation(
-                        f'Sent {len(articles_for_email)} articles to '
-                        f'{config.MANAGER_EMAIL} — awaiting approval.', 'done')
-                    system_status['last_email_sent'] = datetime.now().isoformat()
+            success = email_system.send_manager_approval_email(articles_for_email)
+            if success:
+                db.mark_sent_to_manager([a['id'] for a in articles_for_email])
 
-                    # Log the operation
-                    db.log_system_event(
-                        'INFO',
-                        f'Fresh scraping workflow: {len(articles_for_email)} articles sent to manager',
-                        'FRESH_SCRAPING_WORKFLOW'
-                    )
-                else:
-                    err = getattr(email_system, '_last_error', None) or 'see the server log'
-                    _set_operation(f'Could not send the approval email — {err}', 'error')
+                _set_operation(
+                    f'Sent {len(articles_for_email)} articles to '
+                    f'{config.MANAGER_EMAIL} — awaiting approval.', 'done')
+                system_status['last_email_sent'] = datetime.now().isoformat()
+
+                db.log_system_event(
+                    'INFO',
+                    f'Fresh scraping workflow: {len(articles_for_email)} articles sent to manager',
+                    'FRESH_SCRAPING_WORKFLOW'
+                )
             else:
-                _set_operation('Nothing to email — no articles were ranked.', 'error')
+                err = getattr(email_system, '_last_error', None) or 'see the server log'
+                _set_operation(f'Could not send the approval email — {err}', 'error')
         else:
-            _set_operation('The scrape found no relevant articles.', 'error')
+            _set_operation('The scrape found no new articles to send.', 'error')
         
         # Step 5: Complete operation
         system_status['running'] = False
@@ -1687,9 +1669,9 @@ def fresh_scraping_async():
 
         # Emit completion
         socketio.emit('operation_complete', {
-            'success': len(top_articles) > 0,
+            'success': len(articles_for_email) > 0,
             'message': system_status['current_operation'],
-            'articles_count': len(top_articles) if top_articles else 0,
+            'articles_count': len(articles_for_email) if articles_for_email else 0,
             'total_scraped': scraping_results.get('articles_saved_to_db', 0) if scraping_results else 0
         })
         

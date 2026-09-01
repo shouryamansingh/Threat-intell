@@ -88,7 +88,12 @@ class ThreatIntelDB:
                 relevance_score REAL DEFAULT 0.0,
                 scraped_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 published_date TIMESTAMP,
-                status TEXT DEFAULT 'pending',
+                -- Lifecycle: scraped -> pending -> approved/rejected ->
+                -- manager_approved -> delivered. 'scraped' is the entry point;
+                -- an article only becomes 'pending' once the approval email
+                -- has actually reached the manager. Defaulting to 'pending'
+                -- would let any insert that omits status skip that email.
+                status TEXT DEFAULT 'scraped',
                 sender_validated INTEGER DEFAULT 0,
                 sender_validation_date TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
