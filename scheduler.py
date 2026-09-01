@@ -259,9 +259,8 @@ class ThreatIntelScheduler:
                 )
                 return
 
-            counts = db.reset_workflow(preserve_queue=True)
+            counts = db.reset_workflow()
             total = sum(counts.values())
-            kept_queue = db.queued_article_count()
 
             # One-off delivery jobs reference articles that no longer exist.
             cancelled = 0
@@ -274,13 +273,10 @@ class ThreatIntelScheduler:
                         pass
 
             summary = {k: v for k, v in counts.items() if v}
-            logger.info(
-                f"🧹 Automatic project refresh: cleared {total} rows {summary}; "
-                f"kept {kept_queue} un-emailed article(s)")
+            logger.info(f"🧹 Automatic project refresh: cleared {total} rows {summary}")
             db.log_system_event(
                 'WARNING',
                 f"Automatic project refresh cleared {total} rows ({summary}); "
-                f"kept {kept_queue} un-emailed article(s) in the queue; "
                 f"{cancelled} scheduled job(s) cancelled. "
                 f"Cycle completed {age_h:.0f}h ago with nothing pending.",
                 'AUTO_REFRESH'

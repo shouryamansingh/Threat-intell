@@ -776,20 +776,17 @@ class ThreatIntelDB:
         "scraping_sessions",
     )
 
-    def reset_workflow(self, preserve_queue: bool = True):
+    def reset_workflow(self):
         """Clear the workflow tables and return {table: rows_deleted}.
 
         Extracted so the Refresh Project button and the automatic sweep run the
         same code — two copies of a destructive operation is how they end up
         deleting different things.
 
-        preserve_queue keeps articles still in 'scraped': collected, but never
-        emailed to anyone. A scrape gathers far more than the ten that fit in
-        one approval email, so clearing them would throw the backlog away every
-        cycle and re-scrape the same ground. Nothing else references them — an
-        approval, validation or delivery row can only exist for an article that
-        has already been emailed — so the other tables still clear completely
-        and no orphans are left pointing at what survives.
+        Everything goes, including articles still in 'scraped' that were never
+        emailed to anyone. Refresh means a clean slate: the next scrape starts
+        from nothing. Only the saved settings and the audit trail survive, and
+        neither lives in these tables.
         """
         counts = {}
         conn = sqlite3.connect(self.db_path, timeout=30)
@@ -797,12 +794,8 @@ class ThreatIntelDB:
             conn.execute("PRAGMA busy_timeout=30000")
             cur = conn.cursor()
             for tbl in self.WORKFLOW_TABLES:
-                where = ""
-                if tbl == "news_articles" and preserve_queue:
-                    where = " WHERE status != 'scraped'"
-                counts[tbl] = cur.execute(
-                    f"SELECT COUNT(*) FROM {tbl}{where}").fetchone()[0]
-                cur.execute(f"DELETE FROM {tbl}{where}")
+                counts[tbl] = cur.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
+                cur.execute(f"DELETE FROM {tbl}")
             conn.commit()
         finally:
             conn.close()
@@ -817,8 +810,8 @@ class ThreatIntelDB:
 
         Articles still in 'scraped' deliberately do not hold the sweep back.
         There are normally dozens of them and only ten leave per cycle, so
-        counting them here would block the sweep forever. reset_workflow()
-        preserves them instead of destroying them.
+        counting them here would block the sweep forever — it would never find
+        a moment with an empty queue. They are cleared with everything else.
         """
         conn = sqlite3.connect(self.db_path, timeout=30)
         try:

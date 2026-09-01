@@ -1839,32 +1839,26 @@ def notify_delivery():
 def fresh_scrape():
     """Fresh scraping with complete data reset - clean start"""
     try:
-        # Clear all existing data first for truly fresh start
-        import sqlite3
-        conn = sqlite3.connect(db.db_path, timeout=30)
-        cursor = conn.cursor()
-        
-        # Clear all data tables
-        tables_to_clear = [
-            "news_articles", "manager_approvals", "soc_deliveries", 
-            "sender_validations", "scraping_sessions", "system_logs"
-        ]
-        
-        for table in tables_to_clear:
-            try:
-                cursor.execute(f"DELETE FROM {table}")
-            except sqlite3.Error as e:
-                # A missing table is fine (older database). Anything else —
-                # notably "database is locked" — used to be swallowed silently
-                # here, so a wipe that only half happened still reported a clean
-                # fresh start. Say so instead.
-                logger.warning(f"Could not clear {table}: {e}")
+        # Same clear as the Refresh Project button. This used to be a second
+        # copy of the table list, which is how the two drifted: this one also
+        # deleted system_logs. That table holds the audit trail and the
+        # MANAGER_EMAIL_SENT timestamp the automatic refresh measures 24 hours
+        # from, so a scrape whose email then failed left the sweep with no
+        # reference point and it never fired again.
+        try:
+            cleared = db.reset_workflow()
+        except Exception as e:
+            # A wipe that only half happened used to be swallowed here and
+            # still reported a clean fresh start. Say so instead.
+            logger.error(f"Fresh scrape could not clear previous data: {e}")
+            return jsonify({'success': False,
+                            'message': f'Could not clear previous data: {e}'}), 500
 
-        conn.commit()
-        conn.close()
-        
-        # Log the fresh start
-        db.log_system_event('INFO', 'Fresh scraping started - all data cleared', 'FRESH_SCRAPING')
+        db.log_system_event(
+            'INFO',
+            f'Fresh scraping started — cleared {sum(cleared.values())} rows '
+            f'({", ".join(f"{k}={v}" for k, v in cleared.items() if v) or "nothing to clear"})',
+            'FRESH_SCRAPING')
         
         system_status['running'] = True
         _set_operation('Previous data cleared — starting the scrape…', 'clearing')
@@ -2696,9 +2690,7 @@ def api_admin_refresh_everything():
     DELIBERATELY KEEPS:
       - system_logs (audit trail)
       - admin_settings.json (your saved emails/SMTP/schedule)
-      - articles still in 'scraped' — collected but never emailed, so they
-        carry over and feed the next approval email instead of being
-        re-scraped from the same sources
+    Everything else goes, including articles collected but never emailed.
     Also cancels any pending apscheduler one-off delivery jobs since the
     articles they reference are gone."""
     from scheduler import threat_scheduler
@@ -2706,9 +2698,8 @@ def api_admin_refresh_everything():
     # Shared with scheduler.run_auto_refresh_check — one implementation of a
     # destructive operation rather than two that can drift.
     try:
-        cleared_counts = db.reset_workflow(preserve_queue=True)
+        cleared_counts = db.reset_workflow()
         total = sum(cleared_counts.values())
-        kept_queue = db.queued_article_count()
     except Exception as e:
         logger.error(f"refresh-everything failed during DB clear: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2725,14 +2716,7 @@ def api_admin_refresh_everything():
 
     # Reset in-memory dashboard status so the UI doesn't show stale counts.
     system_status['running'] = False
-    if kept_queue:
-        # Say it plainly. Otherwise the articles still listed after a reset
-        # read as the reset having failed.
-        _set_operation(
-            f'Project reset — {kept_queue} un-emailed article(s) kept in the queue.',
-            'done')
-    else:
-        _set_operation('Project reset — ready to scrape.', 'done')
+    _set_operation('Project reset — ready to scrape.', 'done')
     system_status['pending_approvals'] = 0
     system_status['scheduled_deliveries'] = 0
     system_status['next_delivery'] = None
@@ -2746,8 +2730,7 @@ def api_admin_refresh_everything():
     # Audit trail line in system_logs (kept on purpose)
     db.log_system_event(
         'INFO',
-        f'Project refreshed by admin — cleared {total} rows ({", ".join(f"{k}={v}" for k, v in cleared_counts.items())}); '
-        f'kept {kept_queue} un-emailed article(s); cancelled {jobs_cancelled} pending job(s)',
+        f'Project refreshed by admin — cleared {total} rows ({", ".join(f"{k}={v}" for k, v in cleared_counts.items())}); cancelled {jobs_cancelled} pending job(s)',
         'ADMIN',
     )
 
