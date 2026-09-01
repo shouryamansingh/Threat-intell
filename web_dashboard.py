@@ -2155,26 +2155,53 @@ def get_analytics():
         conn = sqlite3.connect(db.db_path, timeout=30)
         cursor = conn.cursor()
         
-        # Approval rates (only for articles actually sent to manager)
-        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "approved"')
-        approved = cursor.fetchone()[0]
-        
-        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "rejected"')
-        rejected = cursor.fetchone()[0]
-        
+        # The manager's decision is read from manager_approvals, where it is
+        # recorded, and not from news_articles.status.
+        #
+        # In this workflow 'approved' as a status means the SENDER validated
+        # the article; the manager's own approval leaves it in
+        # 'manager_approved' until that happens. Counting status = 'approved'
+        # therefore measured sender validations, and every article the manager
+        # had approved but the sender had not yet reached fell out of both the
+        # numerator and the denominator. A manager who approved 6 of 10 and
+        # rejected 4 produced a card reading 20%.
+        #
+        # The approvals table is also immune to whatever the article's status
+        # becomes later — delivered, sender-rejected — so the rate stops
+        # drifting as articles move down the pipeline.
+        #
+        # MAX(id) picks the latest row per article: the table appends rather
+        # than updates, so a re-decision leaves the earlier one in place and
+        # counting every row would double-count it.
+        cursor.execute("""
+            SELECT ma.decision, COUNT(*)
+            FROM manager_approvals ma
+            JOIN (SELECT article_id, MAX(id) AS latest
+                  FROM manager_approvals GROUP BY article_id) newest
+              ON newest.latest = ma.id
+            GROUP BY ma.decision
+        """)
+        decisions = dict(cursor.fetchall())
+        approved = decisions.get('approved', 0)
+        rejected = decisions.get('rejected', 0)
+
         cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "pending"')
         pending = cursor.fetchone()[0]
 
         cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "scraped"')
         queued = cursor.fetchone()[0]
-        
-        # The rate is "approved out of what a manager actually decided".
-        # It used to divide by approved + rejected + PENDING, so ten articles
-        # sitting in the review queue dragged the figure toward zero — one
-        # approval out of one decision showed as 1.3% rather than 100%. An
-        # article nobody has looked at yet is not a rejection.
+
+        # Manager said yes, sender has not validated yet. Reported so the
+        # figures add up rather than quietly losing this group.
+        cursor.execute('SELECT COUNT(*) FROM news_articles WHERE status = "manager_approved"')
+        awaiting_sender = cursor.fetchone()[0]
+
+        # An article nobody has looked at yet is not a rejection, so undecided
+        # articles stay out of the denominator.
         decided = approved + rejected
-        total = decided + pending + queued
+
+        cursor.execute('SELECT COUNT(*) FROM news_articles')
+        total = cursor.fetchone()[0]
         
         # Source breakdown (only for workflow articles)
         cursor.execute("""
@@ -2206,6 +2233,7 @@ def get_analytics():
                 'rejected': rejected,
                 'pending': pending,
                 'queued': queued,
+                'awaiting_sender': awaiting_sender,
                 'total': total,
                 'decided': decided,
                 'approval_rate': round((approved / decided * 100) if decided > 0 else 0, 1)
