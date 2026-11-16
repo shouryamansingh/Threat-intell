@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>My account · Weekly Cyber Watch</title>
+  <link rel="icon" type="image/svg+xml" href="/static/brand-icon.svg">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--
+    Theme is applied before first paint, exactly as the Jinja pages do it.
+    React mounts too late for this: a user on dark theme would see one frame of
+    white. Keep it inline and keep it first.
+  -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
+
+  <!--
+    No font or icon CDN links here on purpose. Both stylesheets are imported in
+    src/main.jsx and bundled, which Vite emits as a local <link> at build time.
+    The CDN versions were render-blocking and cost ~515ms of blank page per
+    navigation on this network. See src/styles/fonts.css.
+  -->
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

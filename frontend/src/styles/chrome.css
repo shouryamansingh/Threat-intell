@@ -1,0 +1,130 @@
+/* Lifted verbatim from templates/settings.html so the React pages and the
+   remaining Jinja pages render identically. Sidebar, top bar and theme toggle.
+   Source of truth for the look — edit here once React owns the page. */
+
+/* ─── Sidebar ──────────────────────────────────────────────── */
+.app-sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-w-collapsed); background: var(--surface);
+  border-right: 1px solid var(--line); z-index: 1050;
+  display: flex; flex-direction: column; padding: 12px 8px; overflow: hidden;
+  transition: width .26s cubic-bezier(.25,.1,.25,1), box-shadow .26s;
+}
+.app-sidebar:hover { width: var(--sidebar-w-expanded); box-shadow: 6px 0 28px rgba(15,23,41,.09); }
+.app-sidebar .sb-logo {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px 14px;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 10px; text-decoration: none;
+}
+.app-sidebar .sb-logo img { height: 26px; width: 26px; min-width: 26px; }
+.app-sidebar .sb-logo .sb-logo-text {
+  font-size: 12px; font-weight: 650; letter-spacing: .08em; color: var(--ink);
+  text-transform: uppercase; white-space: nowrap;
+  opacity: 0; transform: translateX(-6px); transition: opacity .22s, transform .22s;
+}
+.app-sidebar:hover .sb-logo .sb-logo-text { opacity: 1; transform: translateX(0); }
+.app-sidebar .sb-links { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; overflow-y: auto; }
+.app-sidebar .sb-link {
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+  border: none; background: transparent; color: var(--ink-3); border-radius: var(--r-ctl);
+  font-size: 13.5px; font-weight: 500; text-decoration: none; cursor: pointer;
+  font-family: inherit; text-align: left; white-space: nowrap; position: relative;
+  transition: background .15s, color .15s;
+}
+.app-sidebar .sb-link:hover { background: var(--fill); color: var(--ink); }
+.app-sidebar .sb-link.active {
+  background: var(--accent-tint); color: var(--accent-dk); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.app-sidebar .sb-link .sb-ico {
+  width: 28px; min-width: 28px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.app-sidebar .sb-link .sb-label {
+  opacity: 0; transform: translateX(-6px); transition: opacity .25s, transform .25s;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.app-sidebar:hover .sb-link .sb-label { opacity: 1; transform: translateX(0); }
+.sb-badge {
+  position: absolute; top: 6px; left: 30px; min-width: 7px; height: 7px;
+  border-radius: 999px; background: var(--danger-dot); display: none;
+}
+.sb-badge.show { display: block; }
+.app-sidebar:hover .sb-badge {
+  position: static; margin-left: auto; height: 17px; min-width: 17px; padding: 0 5px;
+  color: #fff; font-size: 10.5px; font-weight: 650; border-radius: 5px;
+  display: none; align-items: center; justify-content: center;
+}
+.app-sidebar:hover .sb-badge.show { display: inline-flex; }
+.app-sidebar .sb-foot {
+  flex-shrink: 0; border-top: 1px solid var(--line-soft);
+  padding-top: 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.app-sidebar .sb-user {
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+  border-radius: var(--r-ctl); text-decoration: none; transition: background .15s;
+}
+.app-sidebar a.sb-user:hover { background: var(--fill); }
+.app-sidebar a.sb-user.active { background: var(--accent-tint); }
+.app-sidebar .sb-avatar, .app-sidebar .sb-avatar-initial {
+  width: 26px; min-width: 26px; height: 26px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 650; background: var(--accent-tint); color: var(--accent-dk);
+  border: 1px solid var(--accent-line); object-fit: cover; flex-shrink: 0;
+}
+.app-sidebar .sb-user-meta {
+  min-width: 0; flex: 1; opacity: 0; transform: translateX(-6px);
+  transition: opacity .25s, transform .25s;
+}
+.app-sidebar:hover .sb-user-meta { opacity: 1; transform: translateX(0); }
+.app-sidebar .sb-user-meta .name {
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-sidebar .sb-user-meta .email {
+  font-size: 11px; color: var(--ink-4);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-sidebar .sb-logout { color: var(--danger); }
+.app-sidebar .sb-logout:hover { background: var(--danger-bg); }
+@media (max-width: 768px) { .app-sidebar { display: none; } body { padding-left: 0; } }
+
+/* ─── Top bar ──────────────────────────────────────────────── */
+header.app {
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 40;
+}
+header.app .inner {
+  /* Must track main's cap, or the brand lockup sits out of line with the
+     content column below it. */
+  max-width: var(--page-max); margin: 0 auto; padding: 0 30px;
+  display: flex; align-items: center; height: 58px; gap: 28px;
+}
+.brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+.brand img { height: 24px; width: auto; display: block; }
+.brand .divider { width: 1px; height: 26px; background: var(--line); }
+.brand .title { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.2; letter-spacing: -.005em; }
+.brand .subtitle { font-size: 11.5px; color: var(--ink-4); line-height: 1.3; }
+
+.theme-toggle {
+  width: 54px; height: 28px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--fill); cursor: pointer; padding: 2px; display: inline-flex; align-items: center;
+}
+.theme-toggle .tt-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.theme-toggle .tt-slot {
+  width: 22px; height: 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform .25s, background .25s, color .25s;
+}
+.theme-toggle .tt-active { background: var(--surface); color: var(--ink-2); transform: translateX(24px); box-shadow: var(--shadow-sm); }
+.theme-toggle .tt-muted { background: transparent; color: var(--ink-5); transform: translateX(-24px); }
+.theme-toggle i { font-size: 12px; }
+.theme-toggle .tt-active .sun { display: inline-block; }
+.theme-toggle .tt-active .moon { display: none; }
+.theme-toggle .tt-muted .moon { display: inline-block; }
+.theme-toggle .tt-muted .sun { display: none; }
+html.dark .theme-toggle .tt-active { transform: translateX(0); }
+html.dark .theme-toggle .tt-muted { transform: translateX(0); }
+html.dark .theme-toggle .tt-active .sun { display: none; }
+html.dark .theme-toggle .tt-active .moon { display: inline-block; }
+html.dark .theme-toggle .tt-muted .moon { display: none; }
+html.dark .theme-toggle .tt-muted .sun { display: inline-block; }

@@ -1,0 +1,35 @@
+/* Geist and Geist Mono, served from our own origin.
+ *
+ * The Jinja pages pull these from fonts.googleapis.com and Font Awesome from
+ * cdnjs, as two render-blocking stylesheets. Measured on this machine that is
+ * ~515ms of white screen before anything paints, on every single navigation —
+ * the VPN's TLS interception makes each round trip expensive. It is also a
+ * hard dependency on two external hosts for an internal security tool.
+ *
+ * Bundling them removes both round trips: Vite fingerprints the files and they
+ * are cached immutably, so the cost is paid once and never again.
+ *
+ * Variable fonts on purpose — one file covers weights 100-900, instead of the
+ * five static weights the Google Fonts URL requested.
+ *
+ * Paths are relative to this file so Vite rewrites them at build time; a bare
+ * 'geist/...' specifier resolves in dev and breaks in the build.
+ */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  /* swap, so text is readable in the fallback face immediately rather than
+     invisible while the woff2 loads. */
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

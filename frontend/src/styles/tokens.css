@@ -1,0 +1,96 @@
+/* Lifted verbatim from templates/settings.html so the React pages and the
+   remaining Jinja pages render identically. Design tokens, base element styles and the dark palette.
+   Source of truth for the look — edit here once React owns the page. */
+
+/* Design tokens, sidebar and header are the same system as the
+   Users & Access page, so the two pages read as one product. */
+:root {
+  --accent:      #2F6BFF;
+  --accent-dk:   #1D4FD7;
+  --accent-tint: #EEF3FF;
+  --accent-line: #C9D9FE;
+
+  --ink:    #0F1729;
+  --ink-2:  #2C3648;
+  --ink-3:  #4A5568;
+  --ink-4:  #6B7590;
+  --ink-5:  #98A1B5;
+
+  --line:      #E3E7EE;
+  --line-soft: #EEF1F6;
+  --surface:   #FFFFFF;
+  --raised:    #FFFFFF;
+  --canvas:    #F4F6F9;
+  --fill:      #F7F9FC;
+
+  --ok:     #10794F;
+  --ok-dot: #15A366;
+  --ok-bg:  #E9F8F0;
+  --warn:     #9A5B0B;
+  --warn-dot: #E39A21;
+  --warn-bg:  #FDF5E7;
+  --danger:     #AF2A1E;
+  --danger-dot: #E04E3F;
+  --danger-bg:  #FDEEEC;
+
+  --shadow-sm: 0 1px 2px rgba(15,23,41,.04), 0 1px 3px rgba(15,23,41,.05);
+  --shadow-md: 0 4px 14px rgba(15,23,41,.07), 0 1px 3px rgba(15,23,41,.04);
+
+  --r-card: 11px;
+  --r-ctl: 7px;
+
+  --sidebar-w-collapsed: 60px;
+  --sidebar-w-expanded: 220px;
+
+  /* One content width for every page, so moving between sections does not
+     resize the column under you. The Jinja pages had drifted to three
+     different caps — admin 72rem, users 74rem, settings 64rem — which read as
+     the page rescaling on each click. 72rem is admin's value, kept because it
+     was already the most common. The dashboard stays uncapped on purpose. */
+  --page-max: 72rem;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0; background: var(--canvas); color: var(--ink);
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  padding-left: var(--sidebar-w-collapsed);
+  font-size: 13.5px; line-height: 1.5;
+}
+.mono { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* ─── Dark ─────────────────────────────────────────────────── */
+html.dark {
+  color-scheme: dark;
+  --accent:      #5C8BFF;
+  --accent-dk:   #86A9FF;
+  --accent-tint: #17233C;
+  --accent-line: #2C4272;
+  --ink:    #E9EDF5;
+  --ink-2:  #C9D1E0;
+  --ink-3:  #A6B0C4;
+  --ink-4:  #8892A8;
+  --ink-5:  #69738A;
+  --line:      #242D3F;
+  --line-soft: #1C2433;
+  --surface:   #111825;
+  --raised:    #131B2A;
+  --canvas:    #0A0E17;
+  --fill:      #161E2D;
+  --ok: #43D699; --ok-dot: #2BB877; --ok-bg: #10231C;
+  --warn: #F3B95F; --warn-dot: #D99A2B; --warn-bg: #241C0F;
+  --danger: #FF8A80; --danger-dot: #E2544A; --danger-bg: #261414;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.35);
+}
+/* Wordmark only — flattening it to white gives the reverse-logo variant.
+   The sidebar badge may be a coloured gradient tile; filtering that would
+   erase the glyph inside it, so it is deliberately excluded. */
+html.dark .brand img { filter: brightness(0) invert(.92); }
+html.dark .theme-toggle .tt-active { background: #242D3F; color: var(--ink); }
+html.dark .rchip.t1 { background: #1B2433; color: var(--ink-3); }
+html.dark .rchip.t3 { background: #2C4272; color: #E9EDF5; border-color: #38508A; }
+html.dark .btn.primary, html.dark .btn.primary:hover { color: #0A0E17; }
+html.dark .btn:hover, html.dark input.inp:hover:not(:disabled):not(:focus) { border-color: #33405A; }
+/* --fill sits too close to --surface in the dark palette for a locked field to read as locked. */
+html.dark input.inp:disabled { background: #0D131E; }
